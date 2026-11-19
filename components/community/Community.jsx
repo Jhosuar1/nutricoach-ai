@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Bell, Bookmark, Film, ImagePlus, LayoutList, LockKeyhole, MessageCircle, Plus, Search as SearchIcon, SquarePen, UserRound, Users } from "lucide-react";
+import { ArrowUpRight, Bell, Bookmark, Film, Gamepad2, ImagePlus, LayoutList, LockKeyhole, MessageCircle, Plus, Search as SearchIcon, SquarePen, UserRound, Users } from "lucide-react";
 import Profile from "./Profile";
 import ProfileOverview from "./ProfileOverview";
 import ActionPanel from "./ActionPanel";
@@ -11,6 +11,7 @@ import Inbox from "./Inbox";
 import Search from "./Search";
 import Composer from "./Composer";
 import Activity from "./Activity";
+import Games from "./games/Games";
 import VideoCall from "./VideoCall";
 import { communityRequest, sendJson } from "./api";
 import { Avatar, button, Notice, primary } from "./controls";
@@ -22,10 +23,11 @@ const views = [
   { id: "video", label: "Videos", Icon: Film },
   { id: "people", label: "Amistades", Icon: Users },
   { id: "inbox", label: "Mensajes", Icon: MessageCircle },
+  { id: "games", label: "Juegos", Icon: Gamepad2 },
   { id: "saved", label: "Guardados", Icon: Bookmark },
 ];
 
-export default function Community({ suggestedName, sharedPost, sharedPerson, onClearSharedPost }) {
+export default function Community({ suggestedName, sharedPost, sharedPerson, onClearSharedPost, messageSignals, messagePeer, onMessageOpened, onActivePeer }) {
   const [profile, setProfile] = useState(undefined);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -78,6 +80,20 @@ export default function Community({ suggestedName, sharedPost, sharedPerson, onC
     poll();
     return () => { controller.abort(); clearTimeout(timer); };
   }, [uid]);
+
+  const activePeer = view === "inbox" && uid ? peer?.user_id : null;
+  useEffect(() => {
+    onActivePeer?.(activePeer ?? null);
+    return () => onActivePeer?.(null);
+  }, [activePeer, onActivePeer]);
+
+  useEffect(() => {
+    if (!messagePeer || !uid) return;
+    setSelectedPost(null);
+    setPeer(messagePeer);
+    setView("inbox");
+    onMessageOpened?.();
+  }, [messagePeer, uid, onMessageOpened]);
 
   async function markRead() {
     if (!events?.[0]) return;
@@ -169,6 +185,7 @@ export default function Community({ suggestedName, sharedPost, sharedPerson, onC
           <div className="community-section-heading"><h2>Videos</h2><button className={button} onClick={() => setComposer("video")}><Plus aria-hidden="true" size={16} /> Añadir video</button></div>
           <Feed profile={profile} scope="video" revision={published} onCompose={setComposer} />
         </>}
+        {view === "games" && <Games userId={uid} />}
         {view === "saved" && <>
           <div className="community-section-heading"><h2>Guardados</h2></div>
           <Feed profile={profile} scope="saved" />
@@ -178,7 +195,7 @@ export default function Community({ suggestedName, sharedPost, sharedPerson, onC
           <div className="community-section-heading"><h2>Amistades</h2><button className={button} onClick={() => setView("search")}><SearchIcon aria-hidden="true" size={16} /> Buscar</button></div>
           <People onChat={openChat} />
         </>}
-        {view === "inbox" && <Inbox peer={peer} userId={profile.user_id} onSelect={setPeer} onFind={() => setView("search")}
+        {view === "inbox" && <Inbox peer={peer} userId={profile.user_id} messageRevision={messageSignals?.revision} messageVersion={messageSignals?.versions?.[peer?.user_id]} onSelect={setPeer} onFind={() => setView("search")}
           onCall={person => setCall({ userId: person.user_id, name: person.display_name })} />}
         {view === "profile" && (editing ? <Profile profile={profile} suggestedName={suggestedName}
           onCancel={() => setEditing(false)} onSave={saved => { setProfile(saved); setEditing(false); }} /> :

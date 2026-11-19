@@ -10,7 +10,7 @@ import { Avatar, button, card, field, Notice, primary } from "./controls";
 const clock = new Intl.DateTimeFormat("es", { hour: "numeric", minute: "2-digit" });
 const day = new Intl.DateTimeFormat("es", { day: "numeric", month: "long" });
 
-export default function Chat({ peer, userId, onBack, onRead, onCall }) {
+export default function Chat({ peer, userId, onBack, onRead, onCall, messageVersion }) {
   const [messages, setMessages] = useState(null);
   const [body, setBody] = useState("");
   const [file, setFile] = useState(null);
@@ -49,7 +49,7 @@ export default function Chat({ peer, userId, onBack, onRead, onCall }) {
     }
     poll();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [peer.user_id]);
+  }, [peer.user_id, messageVersion]);
 
   useEffect(() => {
     if (list.current) list.current.scrollTop = list.current.scrollHeight;

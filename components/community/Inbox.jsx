@@ -7,7 +7,7 @@ import Chat from "./Chat";
 import ActionPanel from "./ActionPanel";
 import { Avatar, button, card, dateLabel, field, Notice } from "./controls";
 
-export default function Inbox({ peer, userId, onSelect, onFind, onCall }) {
+export default function Inbox({ peer, userId, onSelect, onFind, onCall, messageRevision, messageVersion }) {
   const [threads, setThreads] = useState(null);
   const [query, setQuery] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -34,7 +34,7 @@ export default function Inbox({ peer, userId, onSelect, onFind, onCall }) {
     }
     update();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, []);
+  }, [messageRevision]);
 
   const unread = threads?.filter(thread => thread.unread > 0).length || 0;
   const term = query.trim().toLowerCase().replace(/^@/, "");
@@ -91,7 +91,7 @@ export default function Inbox({ peer, userId, onSelect, onFind, onCall }) {
         </button>)}
       </div>
     </section>
-    {peer ? <Chat key={peer.user_id} peer={peer} userId={userId} onCall={onCall} onBack={() => onSelect(null)} onRead={() =>
+    {peer ? <Chat key={peer.user_id} peer={peer} userId={userId} messageVersion={messageVersion} onCall={onCall} onBack={() => onSelect(null)} onRead={() =>
       setThreads(items => items?.map(thread => thread.user_id === peer.user_id ? { ...thread, unread: 0 } : thread) ?? null)} />
       : <div className="community-empty community-inbox-placeholder">
         <div className="community-empty-icon"><MessageCircle aria-hidden="true" size={26} /></div>

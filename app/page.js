@@ -1,9 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useMessageSignals } from "@/components/community/useMessageSignals";
 import { InstallAppButton } from "@/components/InstallApp";
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Home, Camera, Dumbbell, TrendingUp, Moon, Sun, LogOut, CalendarDays, Users, Settings as SettingsIcon } from "lucide-react";
+import { Home, Camera, Dumbbell, TrendingUp, Moon, Sun, LogOut, CalendarDays, Users, MessageCircle, X, Settings as SettingsIcon } from "lucide-react";
 import { AuthScreen, Onboarding, Dashboard, ScanMeal, Workouts, Progress, History, Settings } from "@/components/Screens";
 import { calcProfile, T } from "@/lib/nutrition";
 import { computeAppDate } from "@/lib/appDate";
@@ -39,6 +40,8 @@ export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [profile, setProfile] = useState(null);
   const [screen, setScreen] = useState("dashboard");
+  const [messagePeer, setMessagePeer] = useState(null);
+  const [activePeer, setActivePeer] = useState(null);
   const [sharedPost, setSharedPost] = useState(null);
   const [sharedPerson, setSharedPerson] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -51,6 +54,7 @@ export default function App() {
   const [appDate, setAppDate] = useState(() => computeAppDate(new Date(), "07:00"));
 
   const userId = profile?.user_id;
+  const messageSignals = useMessageSignals(userId, activePeer);
   const dashboardKey = userId && `${userId}:${appDate}`;
   const currentNutrition = nutrition?.key === dashboardKey ? nutrition : null;
   const detailKey = userId && (screen === "progress" ? `${userId}:weight` :
@@ -175,6 +179,8 @@ export default function App() {
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    setMessagePeer(null);
+    setActivePeer(null);
     setAuthenticated(false);
     setProfile(null);
     setNutrition(null);
@@ -323,9 +329,25 @@ export default function App() {
             {screen === "workouts" && <Workouts profile={profile} done={currentDetails ? done : []} onToggle={toggleExercise} appDate={appDate} />}
             {screen === "progress" && <Progress profile={profile} weightLog={currentDetails ? weightLog : []} recordsLoading={!currentDetails} onAddWeight={addWeight} onUpdateHeight={updateHeight} dark={dark} />}
             {screen === "history" && <History />}
-            {screen === "community" && <Community suggestedName={profile.name} sharedPost={sharedPost} sharedPerson={sharedPerson} onClearSharedPost={() => { setSharedPost(null); setSharedPerson(null); }} />}
+            {screen === "community" && <Community suggestedName={profile.name} messageSignals={messageSignals} messagePeer={messagePeer} onMessageOpened={() => setMessagePeer(null)} onActivePeer={setActivePeer} sharedPost={sharedPost} sharedPerson={sharedPerson} onClearSharedPost={() => { setSharedPost(null); setSharedPerson(null); }} />}
           </>
         )}
+
+        {messageSignals.notice && <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-3 z-30 flex w-[min(24rem,calc(100%-1.5rem))] items-center gap-2 rounded-2xl border p-2 shadow-xl"
+          style={{ backgroundColor: "var(--card)", borderColor: "var(--border)", color: "var(--text)" }}>
+          <button className="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-2 text-left" type="button" onClick={() => {
+            setMessagePeer(messageSignals.notice);
+            setSharedPost(null);
+            setSharedPerson(null);
+            setShowSettings(false);
+            setScreen("community");
+            messageSignals.dismiss();
+          }}>
+            <MessageCircle size={20} className="shrink-0 text-violet-400" aria-hidden="true" />
+            <span className="min-w-0" role="status"><strong className="block text-sm">Nuevo mensaje</strong><span className="block truncate text-xs">{messageSignals.notice.display_name}</span></span>
+          </button>
+          <button className="grid min-h-11 min-w-11 place-items-center" type="button" aria-label="Cerrar aviso de mensaje" onClick={messageSignals.dismiss}><X size={17} /></button>
+        </div>}
 
         {!showSettings && (
           <div className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-around py-3 px-4"
@@ -335,7 +357,7 @@ export default function App() {
               const active = screen === t.id;
               const isScan = t.id === "scan";
               return (
-                <button key={t.id} onClick={() => setScreen(t.id)} aria-current={active ? "page" : undefined} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                <button key={t.id} onClick={() => setScreen(t.id)} aria-current={active ? "page" : undefined} aria-label={t.id === "community" && messageSignals.unread ? `Comunidad, ${messageSignals.unread} mensajes sin leer` : undefined} className="relative flex min-w-0 flex-1 flex-col items-center gap-1">
                   {isScan ? (
                     <div className="w-11 h-11 -mt-6 rounded-full flex items-center justify-center shadow-lg" style={{ background: `linear-gradient(135deg, ${T.ai1}, ${T.ai2})` }}>
                       <Icon size={20} color="#fff" />
@@ -343,6 +365,7 @@ export default function App() {
                   ) : (
                     <Icon size={20} color={active ? T.ai1 : "var(--sub)"} />
                   )}
+                  {t.id === "community" && messageSignals.unread > 0 && <span className="absolute -top-1 left-1/2 ml-2 rounded-full bg-violet-700 px-1 text-[9px] leading-4 text-white" aria-hidden="true">{messageSignals.unread > 99 ? "99+" : messageSignals.unread}</span>}
                   <span className="max-w-full truncate text-[9px] font-medium min-[375px]:text-[10px]" style={{ color: active ? T.ai1 : "var(--sub)" }}>{t.label}</span>
                 </button>
               );
