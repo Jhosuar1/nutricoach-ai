@@ -1,13 +1,28 @@
-export const card = "rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4";
-export const field = "w-full min-w-0 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-base";
-export const button = "min-h-11 rounded-xl border border-[var(--border)] px-3 text-sm font-semibold disabled:opacity-50";
-export const primary = "min-h-11 rounded-xl bg-[#6655de] px-3 text-sm font-semibold text-white disabled:opacity-50";
+export const card = "community-card";
+export const field = "community-input";
+export const button = "community-button";
+export const primary = "community-button community-primary";
 
 export function Notice({ error, onRetry }) {
   if (!error) return null;
   return <p role="alert" className="rounded-xl border border-amber-500 p-3 text-sm">
     {error}{onRetry && <button className="ml-2 underline" onClick={onRetry}>Reintentar</button>}
   </p>;
+}
+
+const time = new Intl.DateTimeFormat("es", { hour: "numeric", minute: "2-digit" });
+const date = new Intl.DateTimeFormat("es", { day: "numeric", month: "short" });
+
+export function dateLabel(value) {
+  const at = new Date(value);
+  return at.toDateString() === new Date().toDateString() ? time.format(at) : date.format(at);
+}
+
+export function Avatar({ person, small = false }) {
+  const initials = (person.display_name || person.handle || "N").trim()
+    .split(/\s+/).slice(0, 2).map(word => Array.from(word)[0]).join("").toUpperCase();
+  const colorIndex = Array.from(person.handle || initials).reduce((n, part) => n + part.codePointAt(0), 0) % 4;
+  return <span className={`community-avatar tone-${colorIndex} ${small ? "is-small" : ""}`} aria-hidden="true">{initials}</span>;
 }
 
 export function Person({ person }) {

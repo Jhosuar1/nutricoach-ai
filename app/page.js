@@ -270,7 +270,7 @@ export default function App() {
 
   return (
     <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100dvh" }}>
-      <div style={{ maxWidth: 480, margin: "0 auto", position: "relative", minHeight: "100dvh", paddingBottom: "calc(96px + env(safe-area-inset-bottom))" }}>
+      <div style={{ maxWidth: screen === "community" && !showSettings ? 1152 : 480, margin: "0 auto", position: "relative", minHeight: "100dvh", paddingBottom: "calc(96px + env(safe-area-inset-bottom))" }}>
         {showSettings ? (
           <Settings profile={profile} onSave={saveSettings} onClose={() => setShowSettings(false)} />
         ) : (

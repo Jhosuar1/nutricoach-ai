@@ -108,6 +108,6 @@ Vercel vuelve a desplegar automáticamente en cada push a `main`.
 
 La pestaña **Comunidad** usa la sesión de NutriCoach y pide crear un perfil social. La búsqueda muestra solamente el nombre, el usuario y la biografía. El chat y las publicaciones se comparten con amistades aceptadas. El bloqueo retira el acceso a ambos, y los reportes se registran en la base de datos y ocultan la publicación para quien reporta.
 
-El código social vive en `components/community`, `lib/community` y `app/api/community`. Los adjuntos se sirven desde una ruta autenticada y se guardan en Neon. Esta versión acepta JPG, PNG, WebP y MP4 de hasta 3 MB, con un máximo de 200 publicaciones y 24 MB de adjuntos por usuario.
+El código social vive en `components/community`, `lib/community` y `app/api/community`. Los adjuntos se sirven desde una ruta autenticada y se guardan en Neon. El editor muestra una vista previa y admite hasta cuatro fotos JPG, PNG o WebP, o un MP4, con un máximo de 3 MB por publicación. Cada usuario puede guardar hasta 200 publicaciones propias y 24 MB de adjuntos. El muro incluye comentarios, me gusta y guardados. Buscar encuentra personas y publicaciones visibles. Mensajes muestra conversaciones y mensajes sin leer.
 
-Vercel aplica `migrations/community.sql` antes de compilar en producción. Es una migración aditiva e idempotente. Para una base local o de pruebas, configura `DATABASE_URL` y ejecuta `npm run migrate:community` después de crear las tablas base.
+Vercel aplica `migrations/community.sql` y `migrations/community-engagement.sql` antes de compilar en producción. Son migraciones aditivas e idempotentes. Para una base local o de pruebas, configura `DATABASE_URL` y ejecuta `npm run migrate:community` después de crear las tablas base.
