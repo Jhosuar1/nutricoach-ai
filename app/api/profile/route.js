@@ -4,7 +4,7 @@ import { getUserId } from "@/lib/session";
 import { calcProfile } from "@/lib/nutrition";
 
 export async function GET() {
-  const uid = getUserId();
+  const uid = await getUserId();
   if (!uid) return NextResponse.json({ profile: null, authenticated: false });
 
   const rows = await sql`select * from profiles where user_id = ${uid}`;
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const uid = getUserId();
+  const uid = await getUserId();
   if (!uid) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
   const body = await req.json();

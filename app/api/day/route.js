@@ -3,7 +3,7 @@ import { sql } from "@/lib/db";
 import { getUserId } from "@/lib/session";
 
 export async function GET(req) {
-  const uid = getUserId();
+  const uid = await getUserId();
   if (!uid) return NextResponse.json({ meals: [], water_ml: 0, weight: null, workouts: [] });
 
   const { searchParams } = new URL(req.url);

@@ -6,8 +6,22 @@ import { AuthScreen, Onboarding, Dashboard, ScanMeal, Workouts, Progress, Histor
 import { calcProfile, T } from "@/lib/nutrition";
 import { computeAppDate } from "@/lib/appDate";
 
+async function fetchDashboardData(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error("No se pudieron cargar los datos");
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export default function App() {
   const [loading, setLoading] = useState(true);
+  const [sessionError, setSessionError] = useState(false);
+  const [dashboardError, setDashboardError] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [profile, setProfile] = useState(null);
   const [screen, setScreen] = useState("dashboard");
@@ -37,42 +51,49 @@ export default function App() {
   }, [profile?.wake_time]);
 
   const loadMeals = useCallback(async (date) => {
-    const d = await fetch(`/api/meals?date=${date}`).then((r) => r.json());
+    const d = await fetchDashboardData(`/api/meals?date=${date}`);
     setMeals(d.meals || []);
   }, []);
   const loadWater = useCallback(async (date) => {
-    const d = await fetch(`/api/water?date=${date}`).then((r) => r.json());
+    const d = await fetchDashboardData(`/api/water?date=${date}`);
     setWater(d.total_ml || 0);
   }, []);
   const loadWeight = useCallback(async () => {
-    const d = await fetch("/api/weight").then((r) => r.json());
+    const d = await fetchDashboardData("/api/weight");
     setWeightLog(d.logs || []);
   }, []);
   const loadWorkouts = useCallback(async (date) => {
-    const d = await fetch(`/api/workouts?date=${date}`).then((r) => r.json());
+    const d = await fetchDashboardData(`/api/workouts?date=${date}`);
     setDone(d.completed || []);
   }, []);
   const loadStreak = useCallback(async (date) => {
-    const d = await fetch(`/api/streak?today=${date}`).then((r) => r.json());
+    const d = await fetchDashboardData(`/api/streak?today=${date}`);
     setStreak(d.streak || 0);
   }, []);
 
   const loadAllForDate = useCallback(async (date) => {
-    await Promise.all([loadMeals(date), loadWater(date), loadWeight(), loadWorkouts(date), loadStreak(date)]);
+    const results = await Promise.allSettled([loadMeals(date), loadWater(date), loadWeight(), loadWorkouts(date), loadStreak(date)]);
+    setDashboardError(results.some((result) => result.status === "rejected"));
   }, [loadMeals, loadWater, loadWeight, loadWorkouts, loadStreak]);
 
   const refreshSession = useCallback(async () => {
-    const p = await fetch("/api/profile").then((r) => r.json());
-    setAuthenticated(!!p.authenticated);
-    if (p.authenticated && p.profile) {
-      setProfile(p.profile);
-      const date = computeAppDate(new Date(), p.profile.wake_time);
-      setAppDate(date);
-      await loadAllForDate(date);
-    } else {
-      setProfile(null);
+    setLoading(true);
+    setSessionError(false);
+    try {
+      const p = await fetchDashboardData("/api/profile");
+      if (typeof p.authenticated !== "boolean") throw new Error("Respuesta de perfil inválida");
+      setAuthenticated(p.authenticated);
+      setProfile(p.profile || null);
+      if (p.authenticated && p.profile) {
+        const date = computeAppDate(new Date(), p.profile.wake_time);
+        setAppDate(date);
+        await loadAllForDate(date);
+      }
+    } catch {
+      setSessionError(true);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [loadAllForDate]);
 
   useEffect(() => { refreshSession(); }, [refreshSession]);
@@ -153,9 +174,18 @@ export default function App() {
     "--sub": dark ? T.subDark : T.subLight,
   };
 
+  if (sessionError) {
+    return (
+      <main className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 p-6 text-center text-white">
+        <p role="alert">No pudimos cargar tu cuenta. Revisa tu conexión e inténtalo de nuevo.</p>
+        <button className="rounded-lg bg-violet-700 px-5 py-3" onClick={refreshSession}>Reintentar</button>
+      </main>
+    );
+  }
+
   if (loading) {
     return (
-      <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text)" }}>
+      <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text)" }}>
         Cargando…
       </div>
     );
@@ -163,8 +193,8 @@ export default function App() {
 
   if (!authenticated) {
     return (
-      <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100vh" }}>
-        <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100vh" }}>
+      <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100dvh" }}>
+        <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100dvh" }}>
           <AuthScreen onAuthed={refreshSession} />
         </div>
       </div>
@@ -173,8 +203,8 @@ export default function App() {
 
   if (!profile) {
     return (
-      <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100vh" }}>
-        <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100vh" }}>
+      <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100dvh" }}>
+        <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100dvh" }}>
           <Onboarding onComplete={handleOnboardingComplete} />
         </div>
       </div>
@@ -190,8 +220,8 @@ export default function App() {
   ];
 
   return (
-    <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100vh" }}>
-      <div style={{ maxWidth: 480, margin: "0 auto", position: "relative", minHeight: "100vh", paddingBottom: 96 }}>
+    <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100dvh" }}>
+      <div style={{ maxWidth: 480, margin: "0 auto", position: "relative", minHeight: "100dvh", paddingBottom: "calc(96px + env(safe-area-inset-bottom))" }}>
         {showSettings ? (
           <Settings profile={profile} onSave={saveSettings} onClose={() => setShowSettings(false)} />
         ) : (
@@ -208,6 +238,12 @@ export default function App() {
               </button>
             </div>
 
+            {screen === "dashboard" && dashboardError && (
+              <div role="status" className="mx-6 mt-3 rounded-xl border border-amber-500 p-3 text-sm" style={{ color: "var(--text)" }}>
+                Algunos datos no están disponibles.
+                <button className="ml-2 underline" onClick={() => loadAllForDate(appDate)}>Reintentar</button>
+              </div>
+            )}
             {screen === "dashboard" && <Dashboard profile={profile} targets={targets} meals={meals} water={water} onAddWater={addWater} onDeleteMeal={deleteMeal} streak={streak} />}
             {screen === "scan" && <ScanMeal onAddMeal={addMeal} />}
             {screen === "workouts" && <Workouts profile={profile} done={done} onToggle={toggleExercise} />}
@@ -218,7 +254,7 @@ export default function App() {
 
         {!showSettings && (
           <div className="fixed bottom-0 left-0 right-0 flex items-center justify-around py-3 px-4"
-            style={{ backgroundColor: "var(--card)", borderTop: "1px solid var(--border)", maxWidth: 480, margin: "0 auto" }}>
+            style={{ backgroundColor: "var(--card)", borderTop: "1px solid var(--border)", paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))", maxWidth: 480, margin: "0 auto" }}>
             {tabs.map((t) => {
               const Icon = t.icon;
               const active = screen === t.id;

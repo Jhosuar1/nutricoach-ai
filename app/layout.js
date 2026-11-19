@@ -21,14 +21,15 @@ export const metadata = {
   title: "NutriCoach AI",
   description: "Tu entrenador personal y nutricionista con inteligencia artificial",
   manifest: "/manifest.json",
+  icons: { apple: "/icon-192.png" },
+  other: { "mobile-web-app-capable": "yes" },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "NutriCoach AI" },
 };
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  viewportFit: "cover",
   themeColor: "#12131C",
 };
 

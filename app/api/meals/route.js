@@ -3,7 +3,7 @@ import { sql } from "@/lib/db";
 import { getUserId } from "@/lib/session";
 
 export async function GET(req) {
-  const uid = getUserId();
+  const uid = await getUserId();
   if (!uid) return NextResponse.json({ meals: [] });
 
   const { searchParams } = new URL(req.url);
@@ -17,7 +17,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const uid = getUserId();
+  const uid = await getUserId();
   if (!uid) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
   const { type, items, totals, app_date } = await req.json();
@@ -30,7 +30,7 @@ export async function POST(req) {
 }
 
 export async function DELETE(req) {
-  const uid = getUserId();
+  const uid = await getUserId();
   if (!uid) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);

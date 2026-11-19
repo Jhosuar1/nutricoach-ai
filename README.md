@@ -33,12 +33,12 @@ Funciona como app instalable en iOS y Android (PWA) sin pasar por App Store / Pl
    - **Si ya tenías una base de datos de una versión anterior de esta app (sin login)**: en vez de `schema.sql`, ejecuta `migration_auth.sql`. Ese archivo agrega la tabla `users` y conecta los perfiles con las cuentas, sin borrar lo que ya tienes (a menos que ya hayas creado perfiles de prueba, en cuyo caso el propio archivo te explica qué hacer).
    - **Si ya tenías login pero no el reinicio del día por hora de despertar**: ejecuta también `migration_daycycle.sql`. Agrega la hora de despertar al perfil y las columnas necesarias para agrupar tus registros por "tu día" en vez del calendario UTC del servidor.
 
-## Paso 2 — Conseguir tu API key GRATIS de Gemini
+## Paso 2 — Configurar la API de Gemini
 
 1. Ve a https://aistudio.google.com/apikey
-2. Entra con tu cuenta de Google y clic en **Create API key**. No pide tarjeta de crédito.
+2. Entra con tu cuenta de Google y crea una clave en el proyecto que usará la aplicación.
 3. Copia la key generada.
-4. Esto es 100% gratis con un límite generoso (~1,500 fotos analizadas por día). Si algún día lo superas, la API simplemente te avisa que esperes un minuto — no te cobra nada.
+4. Consulta los modelos y límites de ese proyecto en [Google AI Studio](https://aistudio.google.com/). La facturación de la API se configura por proyecto, independientemente de la suscripción de Google AI. Si quieres un modelo distinto de Flash, configura su identificador en `GEMINI_MODEL`.
 
 ## Paso 3 — Subir el código a GitHub
 
@@ -63,9 +63,9 @@ Funciona como app instalable en iOS y Android (PWA) sin pasar por App Store / Pl
    | Nombre | Valor |
    |---|---|
    | `DATABASE_URL` | la cadena de conexión de Neon del Paso 1 |
-   | `GEMINI_API_KEY` | tu API key gratis de Gemini del Paso 2 |
+   | `GEMINI_API_KEY` | tu clave de API de Gemini del Paso 2 |
    | `SESSION_SECRET` | cualquier texto largo y aleatorio (por ejemplo, generado con `openssl rand -hex 32` en tu terminal) |
-4. Clic en **Deploy**. En 1-2 minutos tendrás una URL pública tipo `https://nutricoach-ai.vercel.app`.
+4. Clic en **Deploy**. Usa el dominio que Vercel indica en el proyecto.
 
 Listo — tu app ya está en línea, con base de datos real y análisis de fotos con IA funcionando.
 
@@ -82,7 +82,7 @@ Quedará con ícono propio y pantalla completa, como una app nativa.
 
 ```bash
 npm install
-cp .env.example .env.local   # y pega ahí tus mismas variables (DATABASE_URL, GEMINI_API_KEY)
+cp .env.example .env.local   # y pega ahí tus mismas variables (DATABASE_URL, SESSION_SECRET, GEMINI_API_KEY)
 npm run dev
 ```
 Abre http://localhost:3000
@@ -98,6 +98,6 @@ Vercel vuelve a desplegar automáticamente en cada push a `main`.
 ## Notas importantes
 
 - **Sesión de usuario**: ya tienes login real con correo y contraseña, ligado a tu base de datos — no depende del navegador. Si quieres además "Entrar con Google" u otros métodos, se puede agregar más adelante.
-- **Costo**: con Neon, Vercel y Gemini en sus planes gratuitos, este proyecto puede correr sin gastar un peso mientras el uso sea personal o de bajo volumen. Si más adelante creces mucho y superas el límite gratuito de Gemini (~1,500 fotos/día), puedes activar facturación en Google o volver a cambiar a otro proveedor.
+- **Costo**: revisa los límites y precios vigentes de Neon, Vercel y la API de Gemini. El costo de IA depende del modelo elegido y del uso de tu proyecto.
 - **Privacidad**: en el nivel gratuito de Gemini, Google puede usar las imágenes/respuestas para mejorar sus modelos. Para un proyecto personal normalmente no es un problema, pero tenlo presente.
-- **Íconos de la app**: el archivo `public/manifest.json` referencia `icon-192.png` e `icon-512.png`. Agrega tus propios íconos en `public/` con esos nombres para que se vean bien al instalarla; sin ellos, igual funciona pero con un ícono genérico.
+- **Íconos de la app**: el archivo `public/manifest.json` referencia `icon-192.png` e `icon-512.png`. Puedes reemplazar los íconos en `public/` manteniendo esos nombres.

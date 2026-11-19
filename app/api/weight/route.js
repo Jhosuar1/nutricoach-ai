@@ -3,7 +3,7 @@ import { sql } from "@/lib/db";
 import { getUserId } from "@/lib/session";
 
 export async function GET() {
-  const uid = getUserId();
+  const uid = await getUserId();
   if (!uid) return NextResponse.json({ logs: [] });
 
   const rows = await sql`
@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(req) {
-  const uid = getUserId();
+  const uid = await getUserId();
   if (!uid) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
   const { weight, app_date } = await req.json();

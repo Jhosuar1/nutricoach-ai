@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/session";
+import { generateGeminiJson, isScanImage } from "@/lib/gemini";
 
 const SYSTEM_PROMPT =
   'Eres un analista nutricional experto. Analiza la imagen de comida y responde ' +
@@ -11,42 +13,23 @@ const SYSTEM_PROMPT =
   'tambien en la lista de "alimentos" con tu mejor estimacion. ' +
   'Si algo no es claro, explicalo brevemente en "nota" y baja la confianza.';
 
-// Se prueba primero el modelo principal; si tarda demasiado o falla, se reintenta
-// automáticamente con un modelo de respaldo antes de darse por vencido.
-const MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"];
-const TIMEOUT_MS = 18000;
-
-async function callGemini(model, requestBody) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      }
-    );
-    return res;
-  } finally {
-    clearTimeout(timer);
-  }
-}
+export const maxDuration = 45;
 
 export async function POST(req) {
-  if (!process.env.GEMINI_API_KEY) {
-    return NextResponse.json({ error: "Falta configurar GEMINI_API_KEY en el servidor" }, { status: 500 });
+  if (!(await getUserId())) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+
+  const payload = await req.json().catch(() => null);
+  if (!payload || typeof payload !== "object") {
+    return NextResponse.json({ error: "Solicitud inválida" }, { status: 400 });
+  }
+  const { base64, mediaType, notaManual } = payload;
+  if (!isScanImage(base64, mediaType)) {
+    return NextResponse.json({ error: "Envía una imagen válida de tamaño compatible" }, { status: 400 });
   }
 
-  const { base64, mediaType, notaManual } = await req.json();
-  if (!base64) {
-    return NextResponse.json({ error: "Falta la imagen" }, { status: 400 });
-  }
-
-  const promptText = notaManual?.trim()
-    ? `Identifica los alimentos de esta foto y estima su información nutricional total. Además, el usuario indica que en la foto también hay (o no se ve bien): "${notaManual.trim()}". Inclúyelo en el análisis.`
+  const note = typeof notaManual === "string" ? notaManual.trim().slice(0, 500) : "";
+  const promptText = note
+    ? `Identifica los alimentos de esta foto y estima su información nutricional total. Además, el usuario indica que en la foto también hay (o no se ve bien): "${note}". Inclúyelo en el análisis.`
     : "Identifica los alimentos de esta foto y estima su información nutricional total.";
 
   const requestBody = {
@@ -62,36 +45,11 @@ export async function POST(req) {
     generationConfig: { responseMimeType: "application/json" },
   };
 
-  let lastError = "desconocido";
-
-  for (const model of MODELS) {
-    try {
-      const res = await callGemini(model, requestBody);
-
-      if (!res.ok) {
-        lastError = await res.text().catch(() => res.statusText);
-        console.error(`Gemini (${model}) error:`, lastError);
-        continue;
-      }
-
-      const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) {
-        lastError = "respuesta vacía";
-        continue;
-      }
-
-      const parsed = JSON.parse(text);
-      return NextResponse.json(parsed);
-    } catch (e) {
-      lastError = e.name === "AbortError" ? "tiempo de espera agotado" : String(e);
-      console.error(`Gemini (${model}) excepción:`, lastError);
-      continue; // intenta con el siguiente modelo de la lista
-    }
-  }
+  const result = await generateGeminiJson(requestBody);
+  if (Array.isArray(result.data?.alimentos)) return NextResponse.json(result.data);
 
   return NextResponse.json(
-    { error: "La IA no respondió a tiempo. Intenta de nuevo, o agrega la comida manualmente." },
-    { status: 504 }
+    { error: result.error || "La IA devolvió un análisis incompleto." },
+    { status: result.status || 502 }
   );
 }

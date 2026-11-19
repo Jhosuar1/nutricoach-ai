@@ -1,5 +1,6 @@
 "use client";
 
+import { prepareScanImage } from "@/lib/scanImage";
 import { useState, useRef, useMemo, useEffect } from "react";
 import {
   Camera, Upload, Plus, Check, X, ChevronLeft, ChevronRight, Loader2, Sparkles,
@@ -377,6 +378,7 @@ export function ScanMeal({ onAddMeal }) {
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [manualItem, setManualItem] = useState({ nombre: "", calorias: "", proteina_g: "", carbohidratos_g: "", grasa_g: "" });
   const fileRef = useRef(null);
+  const galleryRef = useRef(null);
 
   useEffect(() => {
     if (status !== "analyzing") { setShowSlow(false); return; }
@@ -384,22 +386,25 @@ export function ScanMeal({ onAddMeal }) {
     return () => clearTimeout(t);
   }, [status]);
 
-  const handleFile = (file) => {
+  const [photoError, setPhotoError] = useState("");
+
+  const handleFile = async (file) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const full = reader.result;
-      const base64 = full.split(",")[1];
-      setImgData({ base64, mediaType: file.type, previewUrl: full });
-      setStatus("idle");
-      setResult(null);
+    setPhotoError("");
+    setImgData(null);
+    setStatus("idle");
+    setResult(null);
       setNotaManual("");
-    };
-    reader.readAsDataURL(file);
+    try {
+      setImgData(await prepareScanImage(file));
+    } catch {
+      setPhotoError("No pudimos abrir esta foto. Prueba con una imagen JPG o PNG.");
+    }
   };
 
   const analyze = async () => {
     if (!imgData) return;
+    setPhotoError("");
     setStatus("analyzing");
     try {
       const res = await fetch("/api/analyze-food", {
@@ -411,7 +416,8 @@ export function ScanMeal({ onAddMeal }) {
       if (!res.ok || parsed.error) throw new Error(parsed.error || "Error de análisis");
       setResult(parsed);
       setStatus("done");
-    } catch (e) {
+    } catch (error) {
+      setPhotoError(error instanceof SyntaxError ? "El servidor no pudo procesar la foto." : error.message);
       setStatus("error");
     }
   };
@@ -468,11 +474,13 @@ export function ScanMeal({ onAddMeal }) {
             <button onClick={() => fileRef.current.click()} className="flex-1 py-3 rounded-xl font-medium text-white flex items-center justify-center gap-2" style={{ background: `linear-gradient(135deg, ${T.ai1}, ${T.ai2})` }}>
               <Camera size={16} /> Tomar foto
             </button>
-            <button onClick={() => fileRef.current.click()} className="flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2" style={{ border: "1px solid var(--border)" }}>
+            <button onClick={() => galleryRef.current.click()} className="flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2" style={{ border: "1px solid var(--border)" }}>
               <Upload size={16} /> Subir
             </button>
           </div>
-          <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFile(e.target.files[0])} />
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { handleFile(e.target.files[0]); e.target.value = ""; }} />
+          <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={(e) => { handleFile(e.target.files[0]); e.target.value = ""; }} />
+          {photoError && !imgData && <p role="alert" className="my-2 text-sm">{photoError}</p>}
         </div>
       )}
 
@@ -530,7 +538,7 @@ export function ScanMeal({ onAddMeal }) {
             <div className="rounded-2xl p-4 flex items-start gap-3" style={{ backgroundColor: T.calories + "18" }}>
               <AlertCircle size={18} color={T.calories} className="mt-0.5 shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-medium mb-2">No pudimos analizar la imagen</p>
+                <p className="text-sm font-medium mb-2" role="alert">{photoError || "No pudimos analizar la imagen"}</p>
                 <button onClick={analyze} className="text-sm font-medium flex items-center gap-1" style={{ color: T.ai1 }}>
                   <RotateCcw size={14} /> Reintentar
                 </button>
@@ -865,19 +873,24 @@ function BodyScan({ onApplyWeight, onApplyHeight }) {
   const [result, setResult] = useState(null);
   const fileRef = useRef(null);
 
-  const handleFile = (file) => {
+  const [photoError, setPhotoError] = useState("");
+
+  const handleFile = async (file) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const full = reader.result;
-      setImgData({ base64: full.split(",")[1], mediaType: file.type, previewUrl: full });
-      setStatus("idle");
-      setResult(null);
-    };
-    reader.readAsDataURL(file);
+    setPhotoError("");
+    setImgData(null);
+    setStatus("idle");
+    setResult(null);
+    try {
+      setImgData(await prepareScanImage(file));
+    } catch {
+      setPhotoError("No pudimos abrir esta foto. Prueba con una imagen JPG o PNG.");
+    }
   };
 
   const analyze = async () => {
+    if (!imgData) return;
+    setPhotoError("");
     setStatus("analyzing");
     try {
       const res = await fetch("/api/analyze-body", {
@@ -886,10 +899,11 @@ function BodyScan({ onApplyWeight, onApplyHeight }) {
         body: JSON.stringify({ base64: imgData.base64, mediaType: imgData.mediaType }),
       });
       const parsed = await res.json();
-      if (!res.ok || parsed.error) throw new Error();
+      if (!res.ok || parsed.error) throw new Error(parsed.error || "No se pudo analizar la foto.");
       setResult(parsed);
       setStatus("done");
-    } catch {
+    } catch (error) {
+      setPhotoError(error instanceof SyntaxError ? "El servidor no pudo procesar la foto." : error.message);
       setStatus("error");
     }
   };
@@ -909,7 +923,8 @@ function BodyScan({ onApplyWeight, onApplyHeight }) {
           <Camera size={16} /> Tomar o subir foto
         </button>
       )}
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFile(e.target.files[0])} />
+      <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { handleFile(e.target.files[0]); e.target.value = ""; }} />
+      {photoError && !imgData && <p role="alert" className="my-2 text-sm">{photoError}</p>}
 
       {imgData && (
         <div>
@@ -930,7 +945,8 @@ function BodyScan({ onApplyWeight, onApplyHeight }) {
           {status === "error" && (
             <div className="flex items-center gap-2 py-2">
               <AlertCircle size={14} color={T.calories} />
-              <button onClick={analyze} className="text-sm font-medium" style={{ color: T.ai1 }}>No se pudo estimar, reintentar</button>
+              <span role="alert" className="text-sm">{photoError || "No se pudo analizar la foto."}</span>
+              <button onClick={analyze} className="text-sm font-medium" style={{ color: T.ai1 }}>Reintentar</button>
             </div>
           )}
           {status === "done" && result && (

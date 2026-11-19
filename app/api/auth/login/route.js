@@ -3,8 +3,8 @@ import { sql } from "@/lib/db";
 import { verifyPassword, signSession } from "@/lib/auth";
 
 export async function POST(req) {
-  const { email, password } = await req.json();
-  if (!email || !password) {
+  const { email, password } = (await req.json().catch(() => null)) || {};
+  if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
     return NextResponse.json({ error: "Correo y contraseña son obligatorios" }, { status: 400 });
   }
 
@@ -24,6 +24,7 @@ export async function POST(req) {
   res.cookies.set("session", token, {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     maxAge: 60 * 60 * 24 * 180,
     path: "/",
   });

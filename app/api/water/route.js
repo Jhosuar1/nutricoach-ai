@@ -3,7 +3,7 @@ import { sql } from "@/lib/db";
 import { getUserId } from "@/lib/session";
 
 export async function GET(req) {
-  const uid = getUserId();
+  const uid = await getUserId();
   if (!uid) return NextResponse.json({ total_ml: 0 });
 
   const { searchParams } = new URL(req.url);
@@ -17,7 +17,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const uid = getUserId();
+  const uid = await getUserId();
   if (!uid) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
   const { amount_ml, app_date } = await req.json();
