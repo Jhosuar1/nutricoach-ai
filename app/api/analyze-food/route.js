@@ -13,6 +13,32 @@ const SYSTEM_PROMPT =
   'tambien en la lista de "alimentos" con tu mejor estimacion. ' +
   'Si algo no es claro, explicalo brevemente en "nota" y baja la confianza.';
 
+const metrics = ["peso_g", "calorias", "proteina_g", "carbohidratos_g", "grasa_g", "fibra_g", "azucares_g", "sodio_mg"];
+const confidence = ["alta", "media", "baja"];
+const schema = {
+  type: "OBJECT",
+  properties: {
+    alimentos: { type: "ARRAY", items: {
+      type: "OBJECT",
+      properties: {
+        nombre: { type: "STRING" }, porcion: { type: "STRING" },
+        ...Object.fromEntries(metrics.map(metric => [metric, { type: "NUMBER" }])),
+      },
+      required: ["nombre", "porcion", ...metrics],
+    } },
+    confianza: { type: "STRING", enum: confidence },
+    nota: { type: "STRING" },
+  },
+  required: ["alimentos", "confianza", "nota"],
+};
+
+function validFoodAnalysis(result) {
+  return Array.isArray(result?.alimentos) && result.alimentos.length <= 30 &&
+    confidence.includes(result.confianza) && typeof result.nota === "string" &&
+    result.alimentos.every(item => item && typeof item.nombre === "string" && typeof item.porcion === "string" &&
+      metrics.every(metric => Number.isFinite(item[metric]) && item[metric] >= 0 && item[metric] <= 100000));
+}
+
 export const maxDuration = 45;
 
 export async function POST(req) {
@@ -42,10 +68,10 @@ export async function POST(req) {
         ],
       },
     ],
-    generationConfig: { responseMimeType: "application/json" },
+    generationConfig: { responseMimeType: "application/json", responseSchema: schema },
   };
 
-  const result = await generateGeminiJson(requestBody);
+  const result = await generateGeminiJson(requestBody, { validate: validFoodAnalysis });
   if (Array.isArray(result.data?.alimentos)) return NextResponse.json(result.data);
 
   return NextResponse.json(

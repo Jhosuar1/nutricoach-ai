@@ -170,7 +170,9 @@ export default function App() {
   useEffect(() => { refreshSession(); }, [refreshSession]);
 
   async function handleOnboardingComplete(p) {
-    const res = await fetch("/api/profile", { method: "POST", body: JSON.stringify(p) }).then((r) => r.json());
+    const response = await fetch("/api/profile", { method: "POST", body: JSON.stringify(p) });
+    const res = await response.json().catch(() => null);
+    if (!response.ok || !res?.profile) throw new Error(res?.error || "No se pudo guardar tu perfil.");
     const date = computeAppDate(new Date(), p.wakeTime);
     await fetch("/api/weight", { method: "POST", body: JSON.stringify({ weight: p.weight, app_date: date }) });
     setAppDate(date);
@@ -226,9 +228,11 @@ export default function App() {
       name: patch.name, sex: profile.sex, age: patch.age,
       height: patch.height, weight: profile.weight, targetWeight: patch.targetWeight,
       activity: patch.activity, goal: patch.goal, place: patch.place,
-      trainDays: patch.trainDays, equipment: patch.equipment, wakeTime: patch.wakeTime,
+      trainDays: patch.trainDays, equipment: patch.equipment, wakeTime: patch.wakeTime, preferences: patch.preferences,
     };
-    const res = await fetch("/api/profile", { method: "POST", body: JSON.stringify(merged) }).then((r) => r.json());
+    const response = await fetch("/api/profile", { method: "POST", body: JSON.stringify(merged) });
+    const res = await response.json().catch(() => null);
+    if (!response.ok || !res?.profile) throw new Error(res?.error || "No se pudieron guardar los ajustes.");
     setProfile(res.profile);
   }
   async function toggleExercise(key) {

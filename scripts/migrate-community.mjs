@@ -4,7 +4,7 @@ import { neon } from "@neondatabase/serverless";
 if (process.env.VERCEL_ENV === "production" || process.argv.includes("--apply")) {
   if (!process.env.DATABASE_URL) throw new Error("Configura DATABASE_URL para migrar Comunidad.");
   const sql = neon(process.env.DATABASE_URL);
-  const migrations = await Promise.all(["community.sql", "community-engagement.sql", "community-communication.sql"].map((file) =>
+  const migrations = await Promise.all(["community.sql", "community-engagement.sql", "community-communication.sql", "personalization.sql"].map((file) =>
     readFile(new URL(`../migrations/${file}`, import.meta.url), "utf8")));
   const statements = migrations.join("\n").split(";").map((statement) => statement.trim()).filter(Boolean);
   await sql.transaction([

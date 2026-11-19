@@ -117,3 +117,11 @@ Vercel aplica `migrations/community.sql` y `migrations/community-engagement.sql`
 Comunidad incluye notificaciones internas, republicaciones y enlaces a publicaciones. Las republicaciones y enlaces conservan el acceso original. Los chats admiten un adjunto de hasta 3 MB por mensaje y 30 MB enviados por cuenta. Los PDF y ZIP se descargan. Las notas de voz se pueden grabar y revisar antes de enviarlas.
 
 Las videollamadas usan WebRTC. Ambas personas deben tener Comunidad abierta y dar permiso a cámara y micrófono. Configura `COMMUNITY_TURN_URLS` y `COMMUNITY_TURN_SECRET` con un servidor coturn compatible con credenciales temporales para redes donde la conexión directa no funciona. La migración adicional está en `migrations/community-communication.sql`.
+
+## Personalización y Gemini
+
+En Ajustes y en el formulario inicial se puede elegir experiencia, duración, equipo y preferencia de bajo impacto. Entreno usa estas opciones y el objetivo para seleccionar ejercicios, series y descansos del catálogo de NutriCoach.
+
+El seguimiento sin recomendaciones automáticas conserva el registro diario y permite introducir únicamente una meta calórica ya indicada por un profesional. El modo no solicita diagnósticos ni datos genéticos. Los perfiles de menores de 18 años usan seguimiento sin estimaciones ni rutinas automáticas.
+
+El despliegue de producción prueba la clave existente de Gemini con una solicitud de texto y una imagen sintética. Los diagnósticos del build indican el estado sin imprimir la clave. El consejo de Gemini se solicita desde el panel y usa un contexto limitado. El escáner de comidas devuelve estimaciones, con respaldo de modelo y validación de la respuesta.

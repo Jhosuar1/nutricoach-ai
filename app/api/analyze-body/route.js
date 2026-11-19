@@ -1,3 +1,5 @@
+import { sql } from "@/lib/db";
+import { usesProfessionalPlan } from "@/lib/preferences";
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/session";
 import { generateGeminiJson, isScanImage } from "@/lib/gemini";
@@ -15,7 +17,12 @@ const SYSTEM_PROMPT =
 export const maxDuration = 45;
 
 export async function POST(req) {
-  if (!(await getUserId())) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+  const uid = await getUserId();
+  if (!uid) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+  const [profile] = await sql`SELECT age, preferences FROM profiles WHERE user_id = ${uid}`;
+  if (!profile || usesProfessionalPlan(profile)) {
+    return NextResponse.json({ error: "Las estimaciones corporales están desactivadas para este perfil." }, { status: 403 });
+  }
 
   const payload = await req.json().catch(() => null);
   if (!payload || typeof payload !== "object") {

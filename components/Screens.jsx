@@ -1,6 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import PlanPreferences from "./PlanPreferences";
+import { EQUIPMENT, TRAINING_LEVELS, trainingPreferences, usesProfessionalPlan } from "@/lib/preferences";
+import { workoutFor } from "@/lib/workout-plan";
 import { prepareScanImage } from "@/lib/scanImage";
 import { useState, useRef, useMemo, useEffect } from "react";
 import {
@@ -8,7 +11,7 @@ import {
   ArrowRight, Scale, Beef, Wheat, Nut, Droplet, Clock, Zap,
   RotateCcw, AlertCircle, Dumbbell, TrendingUp, Ruler, RefreshCw, Trash2,
 } from "lucide-react";
-import { T, ACTIVITY, GOALS, calcProfile, bmiCategory, MUSCLE_GROUPS, EXERCISES, restToSeconds } from "@/lib/nutrition";
+import { T, ACTIVITY, GOALS, calcProfile, bmiCategory, MUSCLE_GROUPS, restToSeconds } from "@/lib/nutrition";
 
 const WeightChart = dynamic(() => import("./WeightChart"), {
   ssr: false,
@@ -40,7 +43,7 @@ function Ring({ pct, color, size = 116, stroke = 12, children }) {
 }
 
 function MacroBar({ label, value, goal, color, icon, unit = "g", sub }) {
-  const pct = Math.min(100, (value / goal) * 100 || 0);
+  const pct = goal ? Math.min(100, (value / goal) * 100 || 0) : 0;
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between mb-1.5">
@@ -51,12 +54,12 @@ function MacroBar({ label, value, goal, color, icon, unit = "g", sub }) {
           <span className="text-sm font-medium">{label}</span>
         </div>
         <span className="text-sm" style={{ fontFamily: "var(--font-mono)", color: "var(--sub)" }}>
-          {Math.round(value)}<span style={{ opacity: 0.5 }}>/{goal}{unit}</span>
+          {Math.round(value)}{goal ? <span style={{ opacity: 0.5 }}>/{goal}{unit}</span> : ` ${unit}`}
         </span>
       </div>
-      <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
+      {goal != null && <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color, transition: "width 0.6s ease" }} />
-      </div>
+      </div>}
       {sub && <div className="text-xs mt-1" style={{ color: "var(--sub)" }}>{sub}</div>}
     </div>
   );
@@ -160,10 +163,11 @@ export function AuthScreen({ onAuthed, installAction }) {
 export function Onboarding({ onComplete }) {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [p, setP] = useState({
     name: "", sex: "hombre", age: 25, height: 170, weight: 70, targetWeight: 65,
     activity: "moderado", goal: "perder_grasa", trainDays: 4,
-    place: "gimnasio", equipment: [], wakeTime: "07:00",
+    place: "gimnasio", equipment: [], wakeTime: "07:00", preferences: trainingPreferences(),
   });
   const steps = ["Bienvenida", "Perfil", "Cuerpo", "Actividad", "Objetivo", "Entrenamiento", "Listo"];
   const set = (k, v) => setP((s) => ({ ...s, [k]: v }));
@@ -173,8 +177,14 @@ export function Onboarding({ onComplete }) {
 
   const finish = async () => {
     setSaving(true);
-    await onComplete(p);
-    setSaving(false);
+    setSaveError("");
+    try {
+      await onComplete(p);
+    } catch (failure) {
+      setSaveError(failure.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -292,7 +302,7 @@ export function Onboarding({ onComplete }) {
             </div>
             <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--sub)" }}>Equipo disponible</label>
             <div className="flex flex-wrap gap-2 mt-2 mb-5">
-              {["Mancuernas", "Barra", "Bandas", "Máquinas", "Ninguno"].map((eq) => (
+              {EQUIPMENT.map((eq) => (
                 <button key={eq} onClick={() => toggleEquip(eq)} className="px-3.5 py-2 rounded-full text-sm font-medium"
                   style={{ backgroundColor: p.equipment.includes(eq) ? T.ai1 : "var(--bg)", color: p.equipment.includes(eq) ? "#fff" : "var(--text)", border: `1px solid ${p.equipment.includes(eq) ? T.ai1 : "var(--border)"}` }}>
                   {eq}
@@ -310,6 +320,7 @@ export function Onboarding({ onComplete }) {
               </div>
               <input type="range" min="0" max="23" value={parseInt(p.wakeTime, 10)} onChange={(e) => set("wakeTime", `${e.target.value}:00`)} className="w-full" />
             </div>
+            <PlanPreferences preferences={p.preferences} onChange={value => set("preferences", value)} isMinor={p.age < 18} />
           </div>
         )}
 
@@ -319,12 +330,13 @@ export function Onboarding({ onComplete }) {
               <Check size={30} color={T.protein} />
             </div>
             <h2 className="text-2xl font-semibold mb-2" style={{ fontFamily: "var(--font-display)" }}>Todo listo, {p.name.split(" ")[0]}</h2>
-            <p className="text-sm mb-8" style={{ color: "var(--sub)" }}>Calculamos tu plan nutricional personalizado</p>
+            <p className="text-sm mb-8" style={{ color: "var(--sub)" }}>{usesProfessionalPlan(p) ? "Tu registro está listo" : "Estas son tus metas estimadas"}</p>
             <PreviewStats profile={p} />
           </div>
         )}
       </div>
 
+      {saveError && <p role="alert" className="mx-6 mb-2 text-sm">{saveError}</p>}
       <div className="px-6 pb-8 pt-2 flex gap-3">
         {step > 0 && step < 6 && (
           <button onClick={() => setStep(step - 1)} className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ border: "1px solid var(--border)" }}>
@@ -352,6 +364,9 @@ export function Onboarding({ onComplete }) {
 
 function PreviewStats({ profile }) {
   const c = calcProfile(profile);
+  if (c.mode === "professional") return <Card className="text-sm">
+    {c.calories ? `Meta profesional: ${c.calories} kcal/día.` : "Seguimiento sin metas automáticas."}
+  </Card>;
   return (
     <div className="grid grid-cols-2 gap-3 w-full">
       {[
@@ -673,38 +688,31 @@ export function Dashboard({ profile, targets, meals, water, onAddWater, onDelete
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
-  const remaining = Math.max(0, Math.round(targets.calories - consumed.calories));
-  const pct = consumed.calories / targets.calories;
+  const estimated = targets.mode !== "professional";
+  const remaining = targets.calories == null ? null : Math.max(0, Math.round(targets.calories - consumed.calories));
+  const pct = targets.calories ? consumed.calories / targets.calories : 0;
+  const [tipError, setTipError] = useState("");
 
-  const fetchTip = async () => {
+  async function fetchTip() {
+    if (!estimated || tipLoading) return;
     setTipLoading(true);
+    setTipError("");
     try {
-      const n = new Date();
       const res = await fetch("/api/coach-tip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hora: n.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }),
-          diaSemana: n.toLocaleDateString("es", { weekday: "long" }),
-          fecha: n.toLocaleDateString("es", { day: "numeric", month: "long" }),
-          consumido: { calories: consumed.calories, protein: consumed.protein, water },
-          objetivo: { calories: targets.calories, protein: targets.protein, water: targets.water },
-          goal: profile.goal,
-        }),
+        body: JSON.stringify({ hour: new Date().getHours(), meals: meals.length }),
       });
       const data = await res.json();
-      setTip(data.tip || "");
-    } catch {
+      if (!res.ok || !data.tip) throw new Error(data.error || "El coach no está disponible.");
+      setTip(data.tip);
+    } catch (failure) {
       setTip("");
+      setTipError(failure.message);
     } finally {
       setTipLoading(false);
     }
-  };
-
-  useEffect(() => {
-    if (nutritionReady) fetchTip();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nutritionReady, meals.length, water]);
+  }
 
   return (
     <div className="px-6 pt-2 pb-6" style={{ color: "var(--text)" }}>
@@ -729,7 +737,7 @@ export function Dashboard({ profile, targets, meals, water, onAddWater, onDelete
         </Card>
       ) : (
         <>
-          <Card className="mb-4" style={{ borderColor: T.ai1 + "40" }}>
+          {estimated && <Card className="mb-4" style={{ borderColor: T.ai1 + "40" }}>
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: T.ai1 + "22" }}>
                 <Sparkles size={15} color={T.ai1} />
@@ -741,29 +749,31 @@ export function Dashboard({ profile, targets, meals, water, onAddWater, onDelete
                     <Loader2 size={13} className="animate-spin" /> Pensando…
                   </div>
                 ) : (
-                  <p className="text-sm leading-relaxed">{tip || "Todo bien por ahora. Sigue con tu plan."}</p>
+                  <p className="text-sm leading-relaxed">{tip || "Pide una sugerencia para tu objetivo y tu rutina."}</p>
                 )}
               </div>
-              <button onClick={fetchTip} className="shrink-0">
+              <button onClick={fetchTip} disabled={tipLoading} className="min-h-11 min-w-11 grid place-items-center" aria-label="Pedir consejo a Gemini">
                 <RefreshCw size={14} color="var(--sub)" />
               </button>
             </div>
-          </Card>
+            {tipError && <p role="alert" className="mt-2 text-sm">{tipError}</p>}
+          </Card>}
 
           <Card className="mb-4 flex items-center gap-5">
-            <Ring pct={pct} color={T.calories}>
+            {remaining !== null && <Ring pct={pct} color={T.calories}>
               <div className="text-center">
                 <div className="text-xl font-semibold" style={{ fontFamily: "var(--font-mono)" }}>{remaining}</div>
                 <div className="text-[10px]" style={{ color: "var(--sub)" }}>kcal restantes</div>
               </div>
-            </Ring>
+            </Ring>}
             <div className="flex-1">
               <div className="text-sm mb-1" style={{ color: "var(--sub)" }}>Consumidas</div>
               <div className="text-2xl font-semibold mb-2" style={{ fontFamily: "var(--font-mono)" }}>
-                {Math.round(consumed.calories)} <span className="text-sm font-normal" style={{ color: "var(--sub)" }}>/ {targets.calories}</span>
+                {Math.round(consumed.calories)} <span className="text-sm font-normal" style={{ color: "var(--sub)" }}>{targets.calories == null ? "kcal" : `/ ${targets.calories} kcal`}</span>
               </div>
               <div className="flex gap-3 text-xs" style={{ color: "var(--sub)" }}>
-                <span>TMB {targets.bmr}</span><span>·</span><span>TDEE {targets.tdee}</span>
+                {estimated ? <span>Meta estimada · mantenimiento {targets.tdee} kcal</span>
+                  : <span>{targets.calories == null ? "Seguimiento sin meta automática" : "Meta indicada por un profesional"}</span>}
               </div>
             </div>
           </Card>
@@ -815,7 +825,15 @@ export function Dashboard({ profile, targets, meals, water, onAddWater, onDelete
 export function Workouts({ profile, done, onToggle, appDate }) {
   const [group, setGroup] = useState("Cuerpo completo");
   const [inSession, setInSession] = useState(false);
-  const exercises = EXERCISES[group];
+  const prefs = trainingPreferences(profile.preferences);
+  const exercises = workoutFor(profile, group);
+
+  if (usesProfessionalPlan(profile)) return (
+    <div className="px-6 pt-2 pb-6" style={{ color: "var(--text)" }}>
+      <h2 className="text-2xl font-semibold mb-3">Entrenamiento</h2>
+      <Card className="text-sm">Tu perfil usa seguimiento sin rutinas automáticas. Sigue las actividades y límites acordados con tu profesional.</Card>
+    </div>
+  );
 
   if (inSession) {
     return (
@@ -833,6 +851,7 @@ export function Workouts({ profile, done, onToggle, appDate }) {
       <h2 className="text-2xl font-semibold mb-1" style={{ fontFamily: "var(--font-display)" }}>Entrenamiento</h2>
       <p className="text-sm mb-5" style={{ color: "var(--sub)" }}>
         {profile.place === "gimnasio" ? "En el gimnasio" : profile.place === "casa" ? "En casa" : "Casa y gimnasio"} · {profile.train_days} días/semana
+        <br />{TRAINING_LEVELS[prefs.level]} · hasta {prefs.minutes} min{prefs.lowImpact ? " · Sin saltos ni carrera" : ""}
       </p>
 
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
@@ -1032,7 +1051,7 @@ export function Progress({ profile, weightLog, onAddWeight, onUpdateHeight, dark
         )}
       </Card>
 
-      <BodyScan onApplyWeight={onAddWeight} onApplyHeight={onUpdateHeight} />
+      {!usesProfessionalPlan(profile) && <BodyScan onApplyWeight={onAddWeight} onApplyHeight={onUpdateHeight} />}
 
       <Card>
         <div className="text-sm font-semibold mb-3">Registrar peso de hoy</div>
@@ -1292,8 +1311,10 @@ export function Settings({ profile, onSave, onClose }) {
     trainDays: profile.train_days,
     equipment: profile.equipment || [],
     wakeTime: profile.wake_time || "07:00",
+    preferences: trainingPreferences(profile.preferences),
   });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const set = (k, v) => setP((s) => ({ ...s, [k]: v }));
   const toggleEquip = (item) =>
     setP((s) => ({ ...s, equipment: s.equipment.includes(item) ? s.equipment.filter((e) => e !== item) : [...s.equipment, item] }));
@@ -1302,9 +1323,15 @@ export function Settings({ profile, onSave, onClose }) {
 
   const save = async () => {
     setSaving(true);
-    await onSave({ ...p, wakeTime: `${String(wakeHour).padStart(2, "0")}:00` });
-    setSaving(false);
-    onClose();
+    setSaveError("");
+    try {
+      await onSave({ ...p, wakeTime: `${String(wakeHour).padStart(2, "0")}:00` });
+      onClose();
+    } catch (failure) {
+      setSaveError(failure.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1370,7 +1397,7 @@ export function Settings({ profile, onSave, onClose }) {
 
       <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--sub)" }}>Equipo disponible</label>
       <div className="flex flex-wrap gap-2 mt-2 mb-6">
-        {["Mancuernas", "Barra", "Bandas", "Máquinas", "Ninguno"].map((eq) => (
+        {EQUIPMENT.map((eq) => (
           <button key={eq} onClick={() => toggleEquip(eq)} className="px-3.5 py-2 rounded-full text-sm font-medium"
             style={{ backgroundColor: p.equipment.includes(eq) ? T.ai1 : "var(--card)", color: p.equipment.includes(eq) ? "#fff" : "var(--text)", border: `1px solid ${p.equipment.includes(eq) ? T.ai1 : "var(--border)"}` }}>
             {eq}
@@ -1378,6 +1405,11 @@ export function Settings({ profile, onSave, onClose }) {
         ))}
       </div>
 
+      <label className="mb-4 grid gap-2 text-sm">Días de entrenamiento por semana: {p.trainDays}
+        <input type="range" min="1" max="7" value={p.trainDays} onChange={event => set("trainDays", Number(event.target.value))} />
+      </label>
+      <PlanPreferences preferences={p.preferences} onChange={value => set("preferences", value)} isMinor={p.age < 18} />
+      {saveError && <p role="alert" className="mb-3 text-sm">{saveError}</p>}
       <button onClick={save} disabled={saving} className="w-full py-4 rounded-2xl font-medium text-white flex items-center justify-center gap-2"
         style={{ background: `linear-gradient(135deg, ${T.ai1}, ${T.ai2})` }}>
         {saving ? <Loader2 size={18} className="animate-spin" /> : "Guardar cambios"}
