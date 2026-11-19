@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "node scripts/migrate-community.mjs && next build",
+    "start": "next start",
+    "migrate:community": "node --env-file-if-exists=.env.local scripts/migrate-community.mjs --apply"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

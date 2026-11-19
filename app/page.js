@@ -1,11 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { InstallAppButton } from "@/components/InstallApp";
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Home, Camera, Dumbbell, TrendingUp, Moon, Sun, LogOut, CalendarDays, Settings as SettingsIcon } from "lucide-react";
+import { Home, Camera, Dumbbell, TrendingUp, Moon, Sun, LogOut, CalendarDays, Users, Settings as SettingsIcon } from "lucide-react";
 import { AuthScreen, Onboarding, Dashboard, ScanMeal, Workouts, Progress, History, Settings } from "@/components/Screens";
 import { calcProfile, T } from "@/lib/nutrition";
 import { computeAppDate } from "@/lib/appDate";
+
+const Community = dynamic(() => import("@/components/community/Community"), {
+  loading: () => <p className="p-6 text-[var(--text)]" role="status">Cargando Comunidad…</p>,
+});
 
 async function fetchDashboardData(url, signal) {
   const controller = new AbortController();
@@ -260,6 +265,7 @@ export default function App() {
     { id: "workouts", icon: Dumbbell, label: "Entreno" },
     { id: "progress", icon: TrendingUp, label: "Progreso" },
     { id: "history", icon: CalendarDays, label: "Historial" },
+    { id: "community", icon: Users, label: "Comunidad" },
   ];
 
   return (
@@ -299,6 +305,7 @@ export default function App() {
             {screen === "workouts" && <Workouts profile={profile} done={currentDetails ? done : []} onToggle={toggleExercise} appDate={appDate} />}
             {screen === "progress" && <Progress profile={profile} weightLog={currentDetails ? weightLog : []} recordsLoading={!currentDetails} onAddWeight={addWeight} onUpdateHeight={updateHeight} dark={dark} />}
             {screen === "history" && <History />}
+            {screen === "community" && <Community suggestedName={profile.name} />}
           </>
         )}
 
@@ -310,7 +317,7 @@ export default function App() {
               const active = screen === t.id;
               const isScan = t.id === "scan";
               return (
-                <button key={t.id} onClick={() => setScreen(t.id)} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                <button key={t.id} onClick={() => setScreen(t.id)} aria-current={active ? "page" : undefined} className="flex min-w-0 flex-1 flex-col items-center gap-1">
                   {isScan ? (
                     <div className="w-11 h-11 -mt-6 rounded-full flex items-center justify-center shadow-lg" style={{ background: `linear-gradient(135deg, ${T.ai1}, ${T.ai2})` }}>
                       <Icon size={20} color="#fff" />

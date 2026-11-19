@@ -103,3 +103,11 @@ Vercel vuelve a desplegar automáticamente en cada push a `main`.
 - **Costo**: revisa los límites y precios vigentes de Neon, Vercel y la API de Gemini. El costo de IA depende del modelo elegido y del uso de tu proyecto.
 - **Privacidad**: en el nivel gratuito de Gemini, Google puede usar las imágenes/respuestas para mejorar sus modelos. Para un proyecto personal normalmente no es un problema, pero tenlo presente.
 - **Íconos de la app**: el archivo `public/manifest.json` referencia `icon-192.png` e `icon-512.png`. Puedes reemplazar los íconos en `public/` manteniendo esos nombres.
+
+## Comunidad
+
+La pestaña **Comunidad** usa la sesión de NutriCoach y pide crear un perfil social. La búsqueda muestra solamente el nombre, el usuario y la biografía. El chat y las publicaciones se comparten con amistades aceptadas. El bloqueo retira el acceso a ambos, y los reportes se registran en la base de datos y ocultan la publicación para quien reporta.
+
+El código social vive en `components/community`, `lib/community` y `app/api/community`. Los adjuntos se sirven desde una ruta autenticada y se guardan en Neon. Esta versión acepta JPG, PNG, WebP y MP4 de hasta 3 MB, con un máximo de 200 publicaciones y 24 MB de adjuntos por usuario.
+
+Vercel aplica `migrations/community.sql` antes de compilar en producción. Es una migración aditiva e idempotente. Para una base local o de pruebas, configura `DATABASE_URL` y ejecuta `npm run migrate:community` después de crear las tablas base.
