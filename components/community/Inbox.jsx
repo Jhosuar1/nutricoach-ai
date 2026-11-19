@@ -6,7 +6,7 @@ import { communityRequest } from "./api";
 import Chat from "./Chat";
 import { Avatar, button, card, dateLabel, field, Notice } from "./controls";
 
-export default function Inbox({ peer, userId, onSelect, onFind }) {
+export default function Inbox({ peer, userId, onSelect, onFind, onCall }) {
   const [threads, setThreads] = useState(null);
   const [query, setQuery] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -71,7 +71,7 @@ export default function Inbox({ peer, userId, onSelect, onFind }) {
         </button>)}
       </div>
     </section>
-    {peer ? <Chat key={peer.user_id} peer={peer} userId={userId} onBack={() => onSelect(null)} onRead={() =>
+    {peer ? <Chat key={peer.user_id} peer={peer} userId={userId} onCall={onCall} onBack={() => onSelect(null)} onRead={() =>
       setThreads(items => items?.map(thread => thread.user_id === peer.user_id ? { ...thread, unread: 0 } : thread) ?? null)} />
       : <div className="community-empty community-inbox-placeholder">
         <div className="community-empty-icon"><MessageCircle aria-hidden="true" size={26} /></div>

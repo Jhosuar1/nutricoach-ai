@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bookmark, ChevronLeft, ChevronRight, Film, Heart, ImagePlus, LockKeyhole, MessageCircle, MoreHorizontal, Plus } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, Film, Heart, ImagePlus, LockKeyhole, MessageCircle, MoreHorizontal, Plus, Repeat2, Share2 } from "lucide-react";
 import { communityRequest, sendJson } from "./api";
 import { Avatar, button, card, dateLabel, Notice, primary } from "./controls";
 import Comments from "./Comments";
@@ -11,6 +11,7 @@ function Post({ post, userId, onPatch, onRemove }) {
   const [photo, setPhoto] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [shared, setShared] = useState(false);
   const media = `/api/community/media?id=${post.id}&index=${photo}`;
   const totalPhotos = 1 + (post.extra_photos || 0);
   const mine = post.author === userId;
@@ -28,7 +29,22 @@ function Post({ post, userId, onPatch, onRemove }) {
     }
   }
 
+  async function share() {
+    const url = new URL("/", window.location.origin);
+    url.searchParams.set("post", post.id);
+    try {
+      if (navigator.share) await navigator.share({ title: "Publicación de NutriCoach", url: url.href });
+      else {
+        await navigator.clipboard.writeText(url.href);
+        setShared(true);
+      }
+    } catch (failure) {
+      if (failure.name !== "AbortError") setError("No se pudo compartir el enlace.");
+    }
+  }
+
   return <article className={`${card} community-post !p-0`}>
+    {post.reposted_by && <p className="flex items-center gap-2 px-4 pt-3 text-xs text-[var(--sub)]"><Repeat2 size={15} /> Republicado por {post.reposted_by}</p>}
     <header className="flex items-center gap-3 px-4 py-3">
       <Avatar person={post} />
       <div className="min-w-0 flex-1">
@@ -62,7 +78,7 @@ function Post({ post, userId, onPatch, onRemove }) {
       </div>}
     </div>}
     {post.media_type === "video/mp4" && <video className="max-h-[65dvh] w-full bg-black object-contain" controls playsInline preload="none" src={media} aria-label="Video de la publicación" />}
-    <div className="flex items-center gap-1 border-t border-[var(--border)] px-2 py-1">
+    <div className="flex flex-wrap items-center gap-1 border-t border-[var(--border)] px-2 py-1">
       <button className={button} disabled={busy} aria-pressed={post.liked} aria-label="Me gusta" onClick={() => run(async () => {
         await sendJson("interactions", { post: post.id, action: "like", enabled: !post.liked });
         onPatch({ liked: !post.liked, likes: Math.max(0, post.likes + (post.liked ? -1 : 1)) });
@@ -70,11 +86,20 @@ function Post({ post, userId, onPatch, onRemove }) {
       <button className={button} aria-expanded={expanded} aria-label="Comentarios" onClick={() => setExpanded(value => !value)}>
         <MessageCircle aria-hidden="true" size={18} /> {post.comments}
       </button>
+      {!mine && <button className={button} disabled={busy} aria-pressed={post.reposted} aria-label="Republicar"
+        onClick={() => run(async () => {
+          await sendJson("interactions", { post: post.id, action: "repost", enabled: !post.reposted });
+          onPatch({ reposted: !post.reposted });
+        })}><Repeat2 size={18} aria-hidden="true" /></button>}
+      <button className={button} aria-label="Compartir publicación" onClick={share}>
+        <Share2 size={18} aria-hidden="true" />
+      </button>
       <button className={button + " ml-auto"} disabled={busy} aria-pressed={post.saved} aria-label="Guardar publicación" onClick={() => run(async () => {
         await sendJson("interactions", { post: post.id, action: "save", enabled: !post.saved });
         onPatch({ saved: !post.saved });
       })}><Bookmark aria-hidden="true" size={18} fill={post.saved ? "currentColor" : "none"} /></button>
     </div>
+    {shared && <p className="px-4 pb-2 text-sm" role="status">Enlace copiado. Solo funciona para quienes tienen acceso.</p>}
     {error && <div className="px-3 py-2"><Notice error={error} /></div>}
     {expanded && <Comments postId={post.id} userId={userId} onCount={delta => onPatch({ comments: Math.max(0, post.comments + delta) })} />}
   </article>;
@@ -87,7 +112,7 @@ const empty = {
   mine: "Tus publicaciones aparecerán aquí.",
 };
 
-export default function Feed({ profile, scope = "all", query = "", revision = 0, onCompose }) {
+export default function Feed({ profile, scope = "all", query = "", revision = 0, onCompose, postId }) {
   const [posts, setPosts] = useState(null);
   const [next, setNext] = useState(null);
   const [error, setError] = useState("");
@@ -101,6 +126,7 @@ export default function Feed({ profile, scope = "all", query = "", revision = 0,
     active.current = controller;
     const params = new URLSearchParams({ scope, q: query });
     if (before) params.set("before", before);
+    if (postId) params.set("id", postId);
     setError("");
     setLoading(true);
     try {
@@ -113,7 +139,7 @@ export default function Feed({ profile, scope = "all", query = "", revision = 0,
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [scope, query]);
+  }, [scope, query, postId]);
 
   useEffect(() => {
     setPosts(null);
@@ -139,8 +165,8 @@ export default function Feed({ profile, scope = "all", query = "", revision = 0,
     {!posts && !error && <p role="status" className="community-empty">Cargando publicaciones…</p>}
     {posts?.length === 0 && <div className="community-empty">
       <div className="community-empty-icon">{scope === "video" ? <Film aria-hidden="true" size={24} /> : scope === "saved" ? <Bookmark aria-hidden="true" size={24} /> : <ImagePlus aria-hidden="true" size={24} />}</div>
-      <p className="font-semibold">{query ? "Sin resultados" : "Todavía no hay publicaciones"}</p>
-      <p className="text-sm text-[var(--sub)]">{query ? "Prueba con otras palabras." : empty[scope]}</p>
+      <p className="font-semibold">{postId ? "Publicación no disponible" : query ? "Sin resultados" : "Todavía no hay publicaciones"}</p>
+      <p className="text-sm text-[var(--sub)]">{postId ? "El enlace requiere acceso a la publicación." : query ? "Prueba con otras palabras." : empty[scope]}</p>
       {onCompose && !query && ["all", "mine", "video"].includes(scope) && <button className={primary} onClick={() => onCompose(scope === "video" ? "video" : "post")}><Plus aria-hidden="true" size={17} /> Crear publicación</button>}
     </div>}
     {posts?.map(post => <Post key={post.id} post={post} userId={profile.user_id}

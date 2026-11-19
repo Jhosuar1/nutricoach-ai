@@ -111,3 +111,9 @@ La pestaña **Comunidad** usa la sesión de NutriCoach y pide crear un perfil so
 El código social vive en `components/community`, `lib/community` y `app/api/community`. Los adjuntos se sirven desde una ruta autenticada y se guardan en Neon. El editor muestra una vista previa y admite hasta cuatro fotos JPG, PNG o WebP, o un MP4, con un máximo de 3 MB por publicación. Cada usuario puede guardar hasta 200 publicaciones propias y 24 MB de adjuntos. El muro incluye comentarios, me gusta y guardados. Buscar encuentra personas y publicaciones visibles. Mensajes muestra conversaciones y mensajes sin leer.
 
 Vercel aplica `migrations/community.sql` y `migrations/community-engagement.sql` antes de compilar en producción. Son migraciones aditivas e idempotentes. Para una base local o de pruebas, configura `DATABASE_URL` y ejecuta `npm run migrate:community` después de crear las tablas base.
+
+### Mensajes y actividad
+
+Comunidad incluye notificaciones internas, republicaciones y enlaces a publicaciones. Las republicaciones y enlaces conservan el acceso original. Los chats admiten un adjunto de hasta 3 MB por mensaje y 30 MB enviados por cuenta. Los PDF y ZIP se descargan. Las notas de voz se pueden grabar y revisar antes de enviarlas.
+
+Las videollamadas usan WebRTC. Ambas personas deben tener Comunidad abierta y dar permiso a cámara y micrófono. Configura `COMMUNITY_TURN_URLS` y `COMMUNITY_TURN_SECRET` con un servidor coturn compatible con credenciales temporales para redes donde la conexión directa no funciona. La migración adicional está en `migrations/community-communication.sql`.

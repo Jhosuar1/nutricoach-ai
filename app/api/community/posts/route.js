@@ -6,10 +6,11 @@ export const GET = communityRoute(async (request, uid) => {
   const scope = params.get("scope") || "all";
   const query = clean(params.get("q"));
   const before = params.get("before");
-  if (!["all", "video", "saved", "mine"].includes(scope) || query.length > 80 || (before && !uuid(before))) {
+  const id = params.get("id");
+  if (!["all", "video", "saved", "mine"].includes(scope) || query.length > 80 || (before && !uuid(before)) || (id && !uuid(id))) {
     return error("Filtros inválidos.");
   }
-  const rows = await listPosts(uid, scope, query, before || null);
+  const rows = await listPosts(uid, scope, query, before || null, id || null);
   const posts = rows.slice(0, 20);
   return json({ posts, next: rows.length > 20 ? posts.at(-1).id : null });
 });

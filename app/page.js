@@ -39,6 +39,7 @@ export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [profile, setProfile] = useState(null);
   const [screen, setScreen] = useState("dashboard");
+  const [sharedPost, setSharedPost] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [dark, setDark] = useState(true);
   const [meals, setMeals] = useState([]);
@@ -54,6 +55,17 @@ export default function App() {
   const detailKey = userId && (screen === "progress" ? `${userId}:weight` :
     screen === "workouts" ? `${dashboardKey}:workouts` : null);
   const currentDetails = details?.key === detailKey ? details : null;
+
+  useEffect(() => {
+    if (!userId) return;
+    const url = new URL(window.location.href);
+    const post = url.searchParams.get("post");
+    if (!post || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(post)) return;
+    setSharedPost(post);
+    setScreen("community");
+    url.searchParams.delete("post");
+    window.history.replaceState(window.history.state, "", url);
+  }, [userId]);
 
   const targets = useMemo(() => (profile ? calcProfile(profile) : null), [profile]);
 
@@ -305,7 +317,7 @@ export default function App() {
             {screen === "workouts" && <Workouts profile={profile} done={currentDetails ? done : []} onToggle={toggleExercise} appDate={appDate} />}
             {screen === "progress" && <Progress profile={profile} weightLog={currentDetails ? weightLog : []} recordsLoading={!currentDetails} onAddWeight={addWeight} onUpdateHeight={updateHeight} dark={dark} />}
             {screen === "history" && <History />}
-            {screen === "community" && <Community suggestedName={profile.name} />}
+            {screen === "community" && <Community suggestedName={profile.name} sharedPost={sharedPost} onClearSharedPost={() => setSharedPost(null)} />}
           </>
         )}
 
