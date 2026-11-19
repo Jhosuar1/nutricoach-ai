@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { prepareScanImage } from "@/lib/scanImage";
 import { useState, useRef, useMemo, useEffect } from "react";
 import {
@@ -7,10 +8,12 @@ import {
   ArrowRight, Scale, Beef, Wheat, Nut, Droplet, Clock, Zap,
   RotateCcw, AlertCircle, Dumbbell, TrendingUp, Ruler, RefreshCw, Trash2,
 } from "lucide-react";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from "recharts";
 import { T, ACTIVITY, GOALS, calcProfile, bmiCategory, MUSCLE_GROUPS, EXERCISES, restToSeconds } from "@/lib/nutrition";
+
+const WeightChart = dynamic(() => import("./WeightChart"), {
+  ssr: false,
+  loading: () => <p role="status" className="h-[180px] py-6 text-center text-sm">Cargando gráfica…</p>,
+});
 
 /* ---------------------------------------------------------
    UI PRIMITIVES
@@ -655,7 +658,7 @@ function greetingFor(hour) {
   return "Buenas noches";
 }
 
-export function Dashboard({ profile, targets, meals, water, onAddWater, onDeleteMeal, streak }) {
+export function Dashboard({ profile, targets, meals, water, onAddWater, onDeleteMeal, streak, nutritionReady, nutritionError }) {
   const now = new Date();
   const dateLabel = now.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
   const [tip, setTip] = useState("");
@@ -699,9 +702,9 @@ export function Dashboard({ profile, targets, meals, water, onAddWater, onDelete
   };
 
   useEffect(() => {
-    fetchTip();
+    if (nutritionReady) fetchTip();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meals.length, water]);
+  }, [nutritionReady, meals.length, water]);
 
   return (
     <div className="px-6 pt-2 pb-6" style={{ color: "var(--text)" }}>
@@ -718,80 +721,90 @@ export function Dashboard({ profile, targets, meals, water, onAddWater, onDelete
         )}
       </div>
 
-      <Card className="mb-4" style={{ borderColor: T.ai1 + "40" }}>
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: T.ai1 + "22" }}>
-            <Sparkles size={15} color={T.ai1} />
-          </div>
-          <div className="flex-1">
-            <div className="text-xs font-semibold mb-1" style={{ color: T.ai1 }}>Tu coach ahora mismo</div>
-            {tipLoading ? (
-              <div className="flex items-center gap-2 text-sm" style={{ color: "var(--sub)" }}>
-                <Loader2 size={13} className="animate-spin" /> Pensando…
-              </div>
-            ) : (
-              <p className="text-sm leading-relaxed">{tip || "Todo bien por ahora. Sigue con tu plan."}</p>
-            )}
-          </div>
-          <button onClick={fetchTip} className="shrink-0">
-            <RefreshCw size={14} color="var(--sub)" />
-          </button>
-        </div>
-      </Card>
-
-      <Card className="mb-4 flex items-center gap-5">
-        <Ring pct={pct} color={T.calories}>
-          <div className="text-center">
-            <div className="text-xl font-semibold" style={{ fontFamily: "var(--font-mono)" }}>{remaining}</div>
-            <div className="text-[10px]" style={{ color: "var(--sub)" }}>kcal restantes</div>
-          </div>
-        </Ring>
-        <div className="flex-1">
-          <div className="text-sm mb-1" style={{ color: "var(--sub)" }}>Consumidas</div>
-          <div className="text-2xl font-semibold mb-2" style={{ fontFamily: "var(--font-mono)" }}>
-            {Math.round(consumed.calories)} <span className="text-sm font-normal" style={{ color: "var(--sub)" }}>/ {targets.calories}</span>
-          </div>
-          <div className="flex gap-3 text-xs" style={{ color: "var(--sub)" }}>
-            <span>TMB {targets.bmr}</span><span>·</span><span>TDEE {targets.tdee}</span>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="mb-4">
-        <MacroBar label="Proteína" value={consumed.protein} goal={targets.protein} color={T.protein} icon={<Beef size={14} color={T.protein} />} />
-        <MacroBar label="Carbohidratos" value={consumed.carbs} goal={targets.carbs} color={T.carbs} icon={<Wheat size={14} color={T.carbs} />} />
-        <MacroBar label="Grasas" value={consumed.fat} goal={targets.fat} color={T.fat} icon={<Nut size={14} color={T.fat} />} />
-        <MacroBar
-          label="Agua" value={water} goal={targets.water} unit="ml" color={T.water}
-          icon={<Droplet size={14} color={T.water} />}
-          sub={<button onClick={onAddWater} className="mt-1 text-xs font-medium flex items-center gap-1" style={{ color: T.water }}><Plus size={12} /> Agregar 250ml</button>}
-        />
-      </Card>
-
-      <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--sub)" }}>REGISTRO DE HOY</h3>
-      {meals.length === 0 && (
-        <Card className="text-center py-8">
-          <p className="text-sm" style={{ color: "var(--sub)" }}>Aún no has registrado comidas. Ve a la pestaña Escanear para empezar.</p>
+      {!nutritionReady ? (
+        <Card className="mb-4">
+          <p role="status" className="text-sm" style={{ color: "var(--sub)" }}>
+            {nutritionError ? "No se pudo cargar tu registro de hoy." : "Cargando tu registro de hoy…"}
+          </p>
         </Card>
-      )}
-      <div className="space-y-2">
-        {meals.slice().reverse().map((m) => (
-          <Card key={m.id} className="flex items-center justify-between py-3">
-            <div>
-              <div className="text-sm font-medium">{m.type}</div>
-              <div className="text-xs" style={{ color: "var(--sub)" }}>{(m.items || []).map((f) => f.nombre).join(", ")}</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-sm font-semibold" style={{ fontFamily: "var(--font-mono)", color: T.calories }}>
-                {Math.round(m.totals?.calorias || 0)} kcal
+      ) : (
+        <>
+          <Card className="mb-4" style={{ borderColor: T.ai1 + "40" }}>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: T.ai1 + "22" }}>
+                <Sparkles size={15} color={T.ai1} />
               </div>
-              <button onClick={() => onDeleteMeal(m.id)}>
-                <Trash2 size={15} color="var(--sub)" />
+              <div className="flex-1">
+                <div className="text-xs font-semibold mb-1" style={{ color: T.ai1 }}>Tu coach ahora mismo</div>
+                {tipLoading ? (
+                  <div className="flex items-center gap-2 text-sm" style={{ color: "var(--sub)" }}>
+                    <Loader2 size={13} className="animate-spin" /> Pensando…
+                  </div>
+                ) : (
+                  <p className="text-sm leading-relaxed">{tip || "Todo bien por ahora. Sigue con tu plan."}</p>
+                )}
+              </div>
+              <button onClick={fetchTip} className="shrink-0">
+                <RefreshCw size={14} color="var(--sub)" />
               </button>
             </div>
           </Card>
-        ))}
-      </div>
+
+          <Card className="mb-4 flex items-center gap-5">
+            <Ring pct={pct} color={T.calories}>
+              <div className="text-center">
+                <div className="text-xl font-semibold" style={{ fontFamily: "var(--font-mono)" }}>{remaining}</div>
+                <div className="text-[10px]" style={{ color: "var(--sub)" }}>kcal restantes</div>
+              </div>
+            </Ring>
+            <div className="flex-1">
+              <div className="text-sm mb-1" style={{ color: "var(--sub)" }}>Consumidas</div>
+              <div className="text-2xl font-semibold mb-2" style={{ fontFamily: "var(--font-mono)" }}>
+                {Math.round(consumed.calories)} <span className="text-sm font-normal" style={{ color: "var(--sub)" }}>/ {targets.calories}</span>
+              </div>
+              <div className="flex gap-3 text-xs" style={{ color: "var(--sub)" }}>
+                <span>TMB {targets.bmr}</span><span>·</span><span>TDEE {targets.tdee}</span>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="mb-4">
+            <MacroBar label="Proteína" value={consumed.protein} goal={targets.protein} color={T.protein} icon={<Beef size={14} color={T.protein} />} />
+            <MacroBar label="Carbohidratos" value={consumed.carbs} goal={targets.carbs} color={T.carbs} icon={<Wheat size={14} color={T.carbs} />} />
+            <MacroBar label="Grasas" value={consumed.fat} goal={targets.fat} color={T.fat} icon={<Nut size={14} color={T.fat} />} />
+            <MacroBar
+              label="Agua" value={water} goal={targets.water} unit="ml" color={T.water}
+              icon={<Droplet size={14} color={T.water} />}
+              sub={<button onClick={onAddWater} className="mt-1 text-xs font-medium flex items-center gap-1" style={{ color: T.water }}><Plus size={12} /> Agregar 250ml</button>}
+            />
+          </Card>
+
+          <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--sub)" }}>REGISTRO DE HOY</h3>
+          {meals.length === 0 && (
+            <Card className="text-center py-8">
+              <p className="text-sm" style={{ color: "var(--sub)" }}>Aún no has registrado comidas. Ve a la pestaña Escanear para empezar.</p>
+            </Card>
+          )}
+          <div className="space-y-2">
+            {meals.slice().reverse().map((m) => (
+              <Card key={m.id} className="flex items-center justify-between py-3">
+                <div>
+                  <div className="text-sm font-medium">{m.type}</div>
+                  <div className="text-xs" style={{ color: "var(--sub)" }}>{(m.items || []).map((f) => f.nombre).join(", ")}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm font-semibold" style={{ fontFamily: "var(--font-mono)", color: T.calories }}>
+                    {Math.round(m.totals?.calorias || 0)} kcal
+                  </div>
+                  <button onClick={() => onDeleteMeal(m.id)}>
+                    <Trash2 size={15} color="var(--sub)" />
+                  </button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -982,7 +995,7 @@ function BodyScan({ onApplyWeight, onApplyHeight }) {
 /* ---------------------------------------------------------
    PROGRESS
 --------------------------------------------------------- */
-export function Progress({ profile, weightLog, onAddWeight, onUpdateHeight, dark }) {
+export function Progress({ profile, weightLog, onAddWeight, onUpdateHeight, dark, recordsLoading }) {
   const [newWeight, setNewWeight] = useState(Number(profile.weight));
   const latest = weightLog.length ? Number(weightLog[weightLog.length - 1].weight) : Number(profile.weight);
   const bmi = latest / ((Number(profile.height) / 100) ** 2);
@@ -1010,18 +1023,10 @@ export function Progress({ profile, weightLog, onAddWeight, onUpdateHeight, dark
 
       <Card className="mb-5">
         <div className="text-sm font-semibold mb-3">Meta: {Number(profile.target_weight)} kg</div>
-        {chartData.length > 1 ? (
-          <div style={{ width: "100%", height: 180 }}>
-            <ResponsiveContainer>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={dark ? T.borderDark : T.borderLight} />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: dark ? T.subDark : T.subLight }} />
-                <YAxis tick={{ fontSize: 11, fill: dark ? T.subDark : T.subLight }} domain={["dataMin - 2", "dataMax + 2"]} />
-                <Tooltip contentStyle={{ backgroundColor: dark ? T.cardDark : T.cardLight, border: `1px solid ${dark ? T.borderDark : T.borderLight}`, borderRadius: 12 }} />
-                <Line type="monotone" dataKey="peso" stroke={T.ai1} strokeWidth={2.5} dot={{ r: 3, fill: T.ai1 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+        {recordsLoading ? (
+          <p role="status" className="py-6 text-center text-sm">Cargando registros de peso…</p>
+        ) : chartData.length > 1 ? (
+          <WeightChart data={chartData} dark={dark} />
         ) : (
           <p className="text-sm py-6 text-center" style={{ color: "var(--sub)" }}>Registra al menos 2 pesos para ver tu gráfica de evolución</p>
         )}
@@ -1033,7 +1038,7 @@ export function Progress({ profile, weightLog, onAddWeight, onUpdateHeight, dark
         <div className="text-sm font-semibold mb-3">Registrar peso de hoy</div>
         <div className="flex gap-3">
           <input type="number" step="0.1" value={newWeight} onChange={(e) => setNewWeight(+e.target.value)}
-            className="flex-1 px-4 py-3 rounded-xl outline-none" style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)" }} />
+            className="min-w-0 flex-1 px-4 py-3 rounded-xl outline-none" style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)" }} />
           <button onClick={() => onAddWeight(newWeight)} className="px-5 py-3 rounded-xl font-medium text-white" style={{ background: `linear-gradient(135deg, ${T.ai1}, ${T.ai2})` }}>
             Guardar
           </button>

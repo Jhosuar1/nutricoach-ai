@@ -7,22 +7,30 @@ import { AuthScreen, Onboarding, Dashboard, ScanMeal, Workouts, Progress, Histor
 import { calcProfile, T } from "@/lib/nutrition";
 import { computeAppDate } from "@/lib/appDate";
 
-async function fetchDashboardData(url) {
+async function fetchDashboardData(url, signal) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
+  const cancel = () => controller.abort();
+  if (signal?.aborted) cancel();
+  signal?.addEventListener("abort", cancel, { once: true });
+  const timer = setTimeout(cancel, 12000);
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) throw new Error("No se pudieron cargar los datos");
     return await response.json();
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
   }
 }
 
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [sessionError, setSessionError] = useState(false);
-  const [dashboardError, setDashboardError] = useState(false);
+  const [nutrition, setNutrition] = useState(null);
+  const [streakError, setStreakError] = useState(false);
+  const [dashboardRetry, setDashboardRetry] = useState(0);
+  const [details, setDetails] = useState(null);
+  const [detailRetry, setDetailRetry] = useState(0);
   const [authenticated, setAuthenticated] = useState(false);
   const [profile, setProfile] = useState(null);
   const [screen, setScreen] = useState("dashboard");
@@ -34,6 +42,13 @@ export default function App() {
   const [done, setDone] = useState([]);
   const [streak, setStreak] = useState(0);
   const [appDate, setAppDate] = useState(() => computeAppDate(new Date(), "07:00"));
+
+  const userId = profile?.user_id;
+  const dashboardKey = userId && `${userId}:${appDate}`;
+  const currentNutrition = nutrition?.key === dashboardKey ? nutrition : null;
+  const detailKey = userId && (screen === "progress" ? `${userId}:weight` :
+    screen === "workouts" ? `${dashboardKey}:workouts` : null);
+  const currentDetails = details?.key === detailKey ? details : null;
 
   const targets = useMemo(() => (profile ? calcProfile(profile) : null), [profile]);
 
@@ -51,31 +66,60 @@ export default function App() {
     if (profile) setAppDate(computeAppDate(new Date(), profile.wake_time));
   }, [profile?.wake_time]);
 
-  const loadMeals = useCallback(async (date) => {
-    const d = await fetchDashboardData(`/api/meals?date=${date}`);
+  const loadMeals = useCallback(async (date, signal) => {
+    const d = await fetchDashboardData(`/api/meals?date=${date}`, signal);
+    if (signal?.aborted) return;
     setMeals(d.meals || []);
   }, []);
-  const loadWater = useCallback(async (date) => {
-    const d = await fetchDashboardData(`/api/water?date=${date}`);
+  const loadWater = useCallback(async (date, signal) => {
+    const d = await fetchDashboardData(`/api/water?date=${date}`, signal);
+    if (signal?.aborted) return;
     setWater(d.total_ml || 0);
   }, []);
-  const loadWeight = useCallback(async () => {
-    const d = await fetchDashboardData("/api/weight");
+  const loadWeight = useCallback(async (signal) => {
+    const d = await fetchDashboardData("/api/weight", signal);
+    if (signal?.aborted) return;
     setWeightLog(d.logs || []);
   }, []);
-  const loadWorkouts = useCallback(async (date) => {
-    const d = await fetchDashboardData(`/api/workouts?date=${date}`);
+  const loadWorkouts = useCallback(async (date, signal) => {
+    const d = await fetchDashboardData(`/api/workouts?date=${date}`, signal);
+    if (signal?.aborted) return;
     setDone(d.completed || []);
   }, []);
-  const loadStreak = useCallback(async (date) => {
-    const d = await fetchDashboardData(`/api/streak?today=${date}`);
+  const loadStreak = useCallback(async (date, signal) => {
+    const d = await fetchDashboardData(`/api/streak?today=${date}`, signal);
+    if (signal?.aborted) return;
     setStreak(d.streak || 0);
   }, []);
 
-  const loadAllForDate = useCallback(async (date) => {
-    const results = await Promise.allSettled([loadMeals(date), loadWater(date), loadWeight(), loadWorkouts(date), loadStreak(date)]);
-    setDashboardError(results.some((result) => result.status === "rejected"));
-  }, [loadMeals, loadWater, loadWeight, loadWorkouts, loadStreak]);
+  useEffect(() => {
+    if (!dashboardKey) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    setStreakError(false);
+    Promise.allSettled([loadMeals(appDate, signal), loadWater(appDate, signal)]).then((results) => {
+      if (!signal.aborted) {
+        setNutrition({ key: dashboardKey, error: results.some((result) => result.status === "rejected") });
+      }
+    });
+    loadStreak(appDate, signal).catch(() => {
+      if (!signal.aborted) setStreakError(true);
+    });
+    return () => controller.abort();
+  }, [appDate, dashboardKey, dashboardRetry, loadMeals, loadStreak, loadWater]);
+
+  useEffect(() => {
+    if (!detailKey || showSettings) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    const request = screen === "progress" ? loadWeight(signal) : loadWorkouts(appDate, signal);
+    request.then(() => {
+      if (!signal.aborted) setDetails({ key: detailKey, error: false });
+    }).catch(() => {
+      if (!signal.aborted) setDetails({ key: detailKey, error: true });
+    });
+    return () => controller.abort();
+  }, [appDate, detailKey, detailRetry, loadWeight, loadWorkouts, screen, showSettings]);
 
   const refreshSession = useCallback(async () => {
     setLoading(true);
@@ -88,36 +132,33 @@ export default function App() {
       if (p.authenticated && p.profile) {
         const date = computeAppDate(new Date(), p.profile.wake_time);
         setAppDate(date);
-        await loadAllForDate(date);
       }
     } catch {
       setSessionError(true);
     } finally {
       setLoading(false);
     }
-  }, [loadAllForDate]);
+  }, []);
 
   useEffect(() => { refreshSession(); }, [refreshSession]);
 
-  // Cuando el "día" cambia (llegó la hora de levantarse) mientras la app sigue abierta.
-  useEffect(() => {
-    if (profile) loadAllForDate(appDate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appDate]);
-
   async function handleOnboardingComplete(p) {
     const res = await fetch("/api/profile", { method: "POST", body: JSON.stringify(p) }).then((r) => r.json());
-    setProfile(res.profile);
     const date = computeAppDate(new Date(), p.wakeTime);
-    setAppDate(date);
     await fetch("/api/weight", { method: "POST", body: JSON.stringify({ weight: p.weight, app_date: date }) });
-    await loadAllForDate(date);
+    setAppDate(date);
+    setProfile(res.profile);
   }
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     setAuthenticated(false);
     setProfile(null);
+    setNutrition(null);
+    setDetails(null);
+    setStreak(0);
+    setWeightLog([]);
+    setDone([]);
     setScreen("dashboard");
   }
 
@@ -241,29 +282,35 @@ export default function App() {
               </button>
             </div>
 
-            {screen === "dashboard" && dashboardError && (
+            {screen === "dashboard" && (currentNutrition?.error || streakError) && (
               <div role="status" className="mx-6 mt-3 rounded-xl border border-amber-500 p-3 text-sm" style={{ color: "var(--text)" }}>
                 Algunos datos no están disponibles.
-                <button className="ml-2 underline" onClick={() => loadAllForDate(appDate)}>Reintentar</button>
+                <button className="ml-2 underline" onClick={() => setDashboardRetry((value) => value + 1)}>Reintentar</button>
               </div>
             )}
-            {screen === "dashboard" && <Dashboard profile={profile} targets={targets} meals={meals} water={water} onAddWater={addWater} onDeleteMeal={deleteMeal} streak={streak} />}
+            {screen === "dashboard" && <Dashboard profile={profile} targets={targets} meals={meals} water={water} onAddWater={addWater} onDeleteMeal={deleteMeal} streak={streak} nutritionReady={currentNutrition?.error === false} nutritionError={currentNutrition?.error} />}
             {screen === "scan" && <ScanMeal onAddMeal={addMeal} />}
-            {screen === "workouts" && <Workouts profile={profile} done={done} onToggle={toggleExercise} />}
-            {screen === "progress" && <Progress profile={profile} weightLog={weightLog} onAddWeight={addWeight} onUpdateHeight={updateHeight} dark={dark} />}
+            {detailKey && currentDetails?.error && (
+              <div role="status" className="mx-6 mt-3 rounded-xl border border-amber-500 p-3 text-sm" style={{ color: "var(--text)" }}>
+                No se pudieron cargar tus registros.
+                <button className="ml-2 underline" onClick={() => setDetailRetry((value) => value + 1)}>Reintentar</button>
+              </div>
+            )}
+            {screen === "workouts" && <Workouts profile={profile} done={currentDetails ? done : []} onToggle={toggleExercise} appDate={appDate} />}
+            {screen === "progress" && <Progress profile={profile} weightLog={currentDetails ? weightLog : []} recordsLoading={!currentDetails} onAddWeight={addWeight} onUpdateHeight={updateHeight} dark={dark} />}
             {screen === "history" && <History />}
           </>
         )}
 
         {!showSettings && (
-          <div className="fixed bottom-0 left-0 right-0 flex items-center justify-around py-3 px-4"
+          <div className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-around py-3 px-4"
             style={{ backgroundColor: "var(--card)", borderTop: "1px solid var(--border)", paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))", maxWidth: 480, margin: "0 auto" }}>
             {tabs.map((t) => {
               const Icon = t.icon;
               const active = screen === t.id;
               const isScan = t.id === "scan";
               return (
-                <button key={t.id} onClick={() => setScreen(t.id)} className="flex flex-col items-center gap-1 px-2">
+                <button key={t.id} onClick={() => setScreen(t.id)} className="flex min-w-0 flex-1 flex-col items-center gap-1">
                   {isScan ? (
                     <div className="w-11 h-11 -mt-6 rounded-full flex items-center justify-center shadow-lg" style={{ background: `linear-gradient(135deg, ${T.ai1}, ${T.ai2})` }}>
                       <Icon size={20} color="#fff" />
