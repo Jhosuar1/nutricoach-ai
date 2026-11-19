@@ -71,10 +71,12 @@ Listo — tu app ya está en línea, con base de datos real y análisis de fotos
 
 ## Paso 5 — Instalarla como app en el celular
 
-- **iPhone (Safari)**: abre la URL → botón compartir (cuadrado con flecha) → "Agregar a inicio".
-- **Android (Chrome)**: abre la URL → menú (⋮) → "Instalar app" o "Agregar a pantalla de inicio".
+Pulsa **Instalar app** debajo del inicio de sesión o en la barra superior del panel.
 
-Quedará con ícono propio y pantalla completa, como una app nativa.
+- **Android (Chrome)**: si aparece el aviso, confirma **Instalar**. También puedes abrir el menú **⋮**, elegir **Instalar aplicación** o **Instalar y crear acceso directo**, y seleccionar **Instalar**.
+- **iPhone (Safari)**: toca **Compartir**, elige **Agregar a pantalla de inicio**, activa **Abrir como app web** si aparece y toca **Agregar**.
+
+Abre NutriCoach desde su ícono. La app se abre en su propia ventana y usa internet para acceder a la cuenta, los registros y Gemini.
 
 ---
 

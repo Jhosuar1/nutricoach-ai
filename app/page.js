@@ -1,5 +1,6 @@
 "use client";
 
+import { InstallAppButton } from "@/components/InstallApp";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Home, Camera, Dumbbell, TrendingUp, Moon, Sun, LogOut, CalendarDays, Settings as SettingsIcon } from "lucide-react";
 import { AuthScreen, Onboarding, Dashboard, ScanMeal, Workouts, Progress, History, Settings } from "@/components/Screens";
@@ -195,7 +196,7 @@ export default function App() {
     return (
       <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100dvh" }}>
         <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100dvh" }}>
-          <AuthScreen onAuthed={refreshSession} />
+          <AuthScreen onAuthed={refreshSession} installAction={<InstallAppButton />} />
         </div>
       </div>
     );
@@ -205,6 +206,7 @@ export default function App() {
     return (
       <div style={{ ...vars, backgroundColor: "var(--bg)", minHeight: "100dvh" }}>
         <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100dvh" }}>
+          <div className="flex justify-end px-6 pt-4"><InstallAppButton /></div>
           <Onboarding onComplete={handleOnboardingComplete} />
         </div>
       </div>
@@ -227,6 +229,7 @@ export default function App() {
         ) : (
           <>
             <div className="flex items-center justify-end gap-2 px-6 pt-4">
+              <InstallAppButton />
               <button onClick={() => setShowSettings(true)} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ border: "1px solid var(--border)" }} title="Ajustes">
                 <SettingsIcon size={15} color="var(--text)" />
               </button>

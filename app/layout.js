@@ -1,4 +1,5 @@
 import "./globals.css";
+import { InstallAppProvider } from "@/components/InstallApp";
 import { Space_Grotesk, Inter, IBM_Plex_Mono } from "next/font/google";
 
 const spaceGrotesk = Space_Grotesk({
@@ -37,7 +38,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es" className={`${spaceGrotesk.variable} ${inter.variable} ${plexMono.variable}`}>
       <body style={{ fontFamily: "var(--font-body)", margin: 0, backgroundColor: "#0B0B12" }}>
-        {children}
+        <InstallAppProvider>{children}</InstallAppProvider>
       </body>
     </html>
   );

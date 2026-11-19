@@ -70,7 +70,7 @@ function Card({ children, className = "", style = {} }) {
 /* ---------------------------------------------------------
    LOGIN / REGISTRO
 --------------------------------------------------------- */
-export function AuthScreen({ onAuthed }) {
+export function AuthScreen({ onAuthed, installAction }) {
   const [mode, setMode] = useState("login"); // login | register
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -146,6 +146,7 @@ export function AuthScreen({ onAuthed }) {
       >
         {mode === "login" ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión"}
       </button>
+      {installAction && <div className="mt-5 flex justify-center">{installAction}</div>}
     </div>
   );
 }
