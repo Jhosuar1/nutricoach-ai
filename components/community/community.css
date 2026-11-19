@@ -150,3 +150,75 @@
   .community-inbox { grid-template-columns: minmax(15rem, .75fr) minmax(0, 1.25fr); align-items: start; }
   .community-inbox.has-conversation .community-inbox-list, .community-inbox-placeholder { display: grid; }
 }
+
+.community-action-panel { position: relative; }
+.community-action-options {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: .9rem;
+  box-shadow: 0 12px 35px rgb(0 0 0 / .28);
+  color: var(--text);
+  margin-top: .35rem;
+  min-width: 12rem;
+  padding: .35rem;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 15;
+}
+.community-action-item {
+  align-items: center;
+  border-radius: .65rem;
+  display: flex;
+  gap: .65rem;
+  min-height: 46px;
+  padding: .35rem .55rem;
+  text-align: left;
+  width: 100%;
+}
+.community-action-item:hover, .community-action-item:focus-visible { background: var(--community-accent-soft); }
+.community-action-icon { align-items: center; background: var(--community-accent-soft); border-radius: .55rem; display: flex; height: 2rem; justify-content: center; width: 2rem; }
+.community-quick-contacts {
+  display: grid;
+  gap: .6rem;
+  grid-auto-columns: 3.6rem;
+  grid-auto-flow: column;
+  overflow-x: auto;
+  padding: .15rem .2rem .35rem;
+}
+.community-quick-contacts button { display: grid; gap: .3rem; justify-items: center; min-width: 0; }
+.community-quick-photo { position: relative; }
+.community-quick-photo .community-avatar { border: 2px solid var(--card); border-radius: 1.55rem; height: 49px; width: 49px; }
+.community-unread-dot { background: #a494ff; border: 2px solid var(--card); border-radius: 50%; height: 13px; position: absolute; right: 0; top: 0; width: 13px; }
+.community-inbox-filters { border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: .35rem; padding-bottom: .55rem; }
+.community-inbox-filters .community-button { border-radius: 1.5rem; }
+.community-thread[aria-current] .community-avatar { box-shadow: 0 0 0 2px var(--community-accent-soft); }
+.community-profile-hero { display: grid; gap: .9rem; }
+.community-profile-identity { align-items: center; display: flex; gap: .85rem; }
+.community-avatar.is-large { border-radius: 1.5rem; box-shadow: 0 0 0 3px var(--community-accent-soft); font-size: 1.5rem; height: 74px; width: 74px; }
+.community-profile-stats { display: grid; gap: .4rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.community-profile-stats button { background: var(--bg); border: 1px solid var(--border); border-radius: .8rem; display: grid; gap: .16rem; min-height: 58px; padding: .38rem .1rem; text-align: center; }
+.community-profile-stats strong { font-size: 1.08rem; }
+.community-profile-stats span { color: var(--sub); font-size: clamp(.6rem, 2.6vw, .75rem); overflow-wrap: anywhere; }
+.community-profile-buttons, .community-profile-tabs { display: grid; gap: .45rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.community-profile-tabs { border-bottom: 1px solid var(--border); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.community-profile-tabs button { align-items: center; border-bottom: 2px solid transparent; display: grid; font-size: .7rem; gap: .25rem; justify-items: center; min-height: 49px; padding-block: .25rem; }
+.community-profile-tabs button[aria-pressed="true"] { border-color: #9a83ff; font-weight: 700; }
+.community-profile-grid { display: grid; gap: .4rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.community-profile-tile { aspect-ratio: 1; background: var(--community-accent-soft); border: 1px solid var(--border); border-radius: .65rem; min-width: 0; overflow: hidden; position: relative; }
+.community-profile-tile img { height: 100%; object-fit: cover; width: 100%; }
+.community-tile-text { align-content: center; display: grid; font-size: .75rem; gap: .25rem; height: 100%; justify-items: center; overflow: hidden; overflow-wrap: anywhere; padding: .4rem; text-align: center; }
+.community-tile-text span { -webkit-box-orient: vertical; -webkit-line-clamp: 3; display: -webkit-box; overflow: hidden; }
+.community-tile-count { background: rgb(0 0 0 / .75); border-radius: .5rem; bottom: .3rem; color: white; font-size: .65rem; padding: .16rem .32rem; position: absolute; right: .3rem; }
+@media (min-width: 768px) {
+  .community-profile-hero { gap: 1rem; padding: 1.35rem; }
+  .community-profile-tabs button { display: flex; font-size: .82rem; justify-content: center; }
+  .community-profile-grid { gap: .65rem; }
+}
+@media (max-width: 374px) {
+  .community-heading { gap: .5rem; padding: .85rem; }
+  .community-heading h1 { font-size: 1.45rem; }
+  .community-heading .community-action-panel > button { padding-inline: .6rem; }
+  .community-heading .community-action-panel > button > span { display: none; }
+  .community-profile-buttons > button { font-size: .75rem; padding-inline: .32rem; }
+}

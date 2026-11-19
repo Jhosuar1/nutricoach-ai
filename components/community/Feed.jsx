@@ -110,9 +110,11 @@ const empty = {
   video: "Todavía no hay videos de tus amistades.",
   saved: "Las publicaciones que guardes aparecerán aquí.",
   mine: "Tus publicaciones aparecerán aquí.",
+  "mine-video": "Tus videos aparecerán aquí.",
+  reposts: "Las publicaciones que republiques aparecerán aquí.",
 };
 
-export default function Feed({ profile, scope = "all", query = "", revision = 0, onCompose, postId }) {
+export default function Feed({ profile, scope = "all", query = "", revision = 0, onCompose, postId, onOpenPost }) {
   const [posts, setPosts] = useState(null);
   const [next, setNext] = useState(null);
   const [error, setError] = useState("");
@@ -167,9 +169,20 @@ export default function Feed({ profile, scope = "all", query = "", revision = 0,
       <div className="community-empty-icon">{scope === "video" ? <Film aria-hidden="true" size={24} /> : scope === "saved" ? <Bookmark aria-hidden="true" size={24} /> : <ImagePlus aria-hidden="true" size={24} />}</div>
       <p className="font-semibold">{postId ? "Publicación no disponible" : query ? "Sin resultados" : "Todavía no hay publicaciones"}</p>
       <p className="text-sm text-[var(--sub)]">{postId ? "El enlace requiere acceso a la publicación." : query ? "Prueba con otras palabras." : empty[scope]}</p>
-      {onCompose && !query && ["all", "mine", "video"].includes(scope) && <button className={primary} onClick={() => onCompose(scope === "video" ? "video" : "post")}><Plus aria-hidden="true" size={17} /> Crear publicación</button>}
+      {onCompose && !query && ["all", "mine", "video", "mine-video"].includes(scope) && <button className={primary} onClick={() => onCompose(["video", "mine-video"].includes(scope) ? "video" : "post")}><Plus aria-hidden="true" size={17} /> Crear publicación</button>}
     </div>}
-    {posts?.map(post => <Post key={post.id} post={post} userId={profile.user_id}
+    {onOpenPost && !!posts?.length && <div className="community-profile-grid">
+      {posts.map(post => <button type="button" key={post.id} className="community-profile-tile"
+        aria-label={post.body ? `Abrir publicación: ${post.body.slice(0, 80)}` : "Abrir publicación multimedia"}
+        onClick={() => onOpenPost(post.id)}>
+        {post.media_type?.startsWith("image/") ? <img src={`/api/community/media?id=${post.id}`} alt="" loading="lazy" />
+          : <span className="community-tile-text">{post.media_type && <Film size={20} aria-hidden="true" />}
+            <span>{post.body || "Video"}</span>
+          </span>}
+        {post.extra_photos > 0 && <span className="community-tile-count">{post.extra_photos + 1} fotos</span>}
+      </button>)}
+    </div>}
+    {!onOpenPost && posts?.map(post => <Post key={post.id} post={post} userId={profile.user_id}
       onPatch={patch => setPosts(items => items.map(item => item.id === post.id ? { ...item, ...patch } : item)
         .filter(item => scope !== "saved" || item.saved))}
       onRemove={message => {

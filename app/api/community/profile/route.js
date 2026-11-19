@@ -5,6 +5,23 @@ export const GET = communityRoute(async (request, uid) => {
   const [profile] = await sql`
     SELECT user_id, handle, display_name, bio FROM community_profiles WHERE user_id = ${uid}
   `;
+  if (profile && new URL(request.url).searchParams.has("summary")) {
+    const [stats] = await sql`
+      SELECT (SELECT count(*)::int FROM community_posts WHERE author = ${uid}) AS posts,
+        (SELECT count(*)::int FROM community_friendships f WHERE f.accepted
+          AND ${uid} IN (f.user_a, f.user_b)
+          AND NOT EXISTS (SELECT FROM community_blocks b WHERE
+            (b.blocker = f.user_a AND b.blocked = f.user_b) OR (b.blocker = f.user_b AND b.blocked = f.user_a))) AS friends,
+        (SELECT count(*)::int FROM community_reposts r
+          JOIN community_posts p ON p.id = r.post_id
+          JOIN community_friendships f ON f.user_a = least(r.user_id, p.author)
+            AND f.user_b = greatest(r.user_id, p.author) AND f.accepted
+          WHERE r.user_id = ${uid} AND NOT EXISTS (SELECT FROM community_blocks b WHERE
+            (b.blocker = r.user_id AND b.blocked = p.author) OR (b.blocker = p.author AND b.blocked = r.user_id))
+            AND NOT EXISTS (SELECT FROM community_reports report WHERE report.post_id = p.id AND report.reporter = r.user_id)) AS reposts
+    `;
+    return json({ profile, stats });
+  }
   return json({ profile: profile || null });
 });
 

@@ -6,9 +6,9 @@ import Feed from "./Feed";
 import People from "./People";
 import { button, card, field, primary } from "./controls";
 
-export default function Search({ profile, onChat }) {
-  const [entry, setEntry] = useState("");
-  const [query, setQuery] = useState("");
+export default function Search({ profile, onChat, initialQuery = "" }) {
+  const [entry, setEntry] = useState(initialQuery);
+  const [query, setQuery] = useState(initialQuery);
   const [scope, setScope] = useState("people");
 
   return <section className="grid min-w-0 gap-4" aria-label="Buscar en Comunidad">

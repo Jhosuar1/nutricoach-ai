@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { MessageCircle, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MessageCircle, Search, SquarePen, UserRoundSearch, Users } from "lucide-react";
 import { communityRequest } from "./api";
 import Chat from "./Chat";
+import ActionPanel from "./ActionPanel";
 import { Avatar, button, card, dateLabel, field, Notice } from "./controls";
 
 export default function Inbox({ peer, userId, onSelect, onFind, onCall }) {
@@ -11,6 +12,7 @@ export default function Inbox({ peer, userId, onSelect, onFind, onCall }) {
   const [query, setQuery] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [error, setError] = useState("");
+  const search = useRef(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -34,24 +36,42 @@ export default function Inbox({ peer, userId, onSelect, onFind, onCall }) {
     return () => { controller.abort(); clearTimeout(timer); };
   }, []);
 
+  const unread = threads?.filter(thread => thread.unread > 0).length || 0;
   const term = query.trim().toLowerCase().replace(/^@/, "");
   const visible = threads?.filter(thread =>
     (!unreadOnly || thread.unread > 0) &&
     (!term || thread.handle.includes(term) || thread.display_name.toLowerCase().includes(term)));
 
   return <div className={`community-inbox ${peer ? "has-conversation" : ""}`}>
-    <section className={`${card} community-inbox-list grid min-w-0 gap-3`} aria-label="Bandeja de mensajes">
+    <section className={`${card} community-inbox-list grid min-w-0 gap-4`} aria-label="Bandeja de mensajes">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Mensajes</h2>
-        <button className={button} type="button" onClick={onFind}>Nuevo chat</button>
+        <h2 className="text-xl font-semibold">Mensajes</h2>
+        <ActionPanel title="Nuevo chat" label="Nuevo" Icon={SquarePen} className={button} items={[
+          { Icon: Users, label: "Elegir una amistad", action: () => {
+            setUnreadOnly(false); setQuery(""); search.current?.focus();
+          } },
+          { Icon: UserRoundSearch, label: "Buscar personas", action: onFind },
+        ]} />
       </div>
       <label className="relative block">
         <Search className="absolute left-3 top-3 text-[var(--sub)]" size={17} aria-hidden="true" />
-        <input className={field + " !pl-9"} value={query} onChange={e => setQuery(e.target.value)} aria-label="Buscar conversaciones" placeholder="Buscar conversaciones" />
+        <input ref={search} type="search" className={field + " !pl-9"} value={query} onChange={e => setQuery(e.target.value)} aria-label="Buscar conversaciones" placeholder="Buscar conversaciones" />
       </label>
-      <div className="flex flex-wrap gap-2">
-        <button className={button} aria-pressed={!unreadOnly} onClick={() => setUnreadOnly(false)}>Todos</button>
-        <button className={button} aria-pressed={unreadOnly} onClick={() => setUnreadOnly(true)}>No leídos</button>
+      {!term && !!threads?.length && <div className="grid gap-2">
+        <h3 className="text-xs font-semibold text-[var(--sub)]">Contactos rápidos</h3>
+        <div className="community-quick-contacts">
+          {threads.slice(0, 8).map(thread => <button key={thread.user_id} type="button"
+            aria-label={`Abrir chat con ${thread.display_name}`} onClick={() => onSelect(thread)}>
+            <span className="community-quick-photo"><Avatar person={thread} />
+              {thread.unread > 0 && <span className="community-unread-dot" />}
+            </span>
+            <span className="w-full truncate text-xs">{thread.display_name}</span>
+          </button>)}
+        </div>
+      </div>}
+      <div className="community-inbox-filters" aria-label="Filtrar bandeja">
+        <button className={button} aria-pressed={!unreadOnly} onClick={() => setUnreadOnly(false)}>Bandeja</button>
+        <button className={button} aria-pressed={unreadOnly} onClick={() => setUnreadOnly(true)}>No leídos{unread > 0 && <span className="community-count">{unread}</span>}</button>
       </div>
       <Notice error={error} />
       {!threads && !error && <p role="status" className="text-sm">Cargando conversaciones…</p>}

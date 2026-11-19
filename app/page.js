@@ -40,6 +40,7 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [screen, setScreen] = useState("dashboard");
   const [sharedPost, setSharedPost] = useState(null);
+  const [sharedPerson, setSharedPerson] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [dark, setDark] = useState(true);
   const [meals, setMeals] = useState([]);
@@ -60,10 +61,15 @@ export default function App() {
     if (!userId) return;
     const url = new URL(window.location.href);
     const post = url.searchParams.get("post");
-    if (!post || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(post)) return;
-    setSharedPost(post);
+    const person = url.searchParams.get("persona");
+    const validPost = post && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(post);
+    const validPerson = person && /^[a-z0-9_]{3,24}$/.test(person);
+    if (!validPost && !validPerson) return;
+    setSharedPost(validPost ? post : null);
+    setSharedPerson(!validPost && validPerson ? person : null);
     setScreen("community");
     url.searchParams.delete("post");
+    url.searchParams.delete("persona");
     window.history.replaceState(window.history.state, "", url);
   }, [userId]);
 
@@ -317,7 +323,7 @@ export default function App() {
             {screen === "workouts" && <Workouts profile={profile} done={currentDetails ? done : []} onToggle={toggleExercise} appDate={appDate} />}
             {screen === "progress" && <Progress profile={profile} weightLog={currentDetails ? weightLog : []} recordsLoading={!currentDetails} onAddWeight={addWeight} onUpdateHeight={updateHeight} dark={dark} />}
             {screen === "history" && <History />}
-            {screen === "community" && <Community suggestedName={profile.name} sharedPost={sharedPost} onClearSharedPost={() => setSharedPost(null)} />}
+            {screen === "community" && <Community suggestedName={profile.name} sharedPost={sharedPost} sharedPerson={sharedPerson} onClearSharedPost={() => { setSharedPost(null); setSharedPerson(null); }} />}
           </>
         )}
 
@@ -337,7 +343,7 @@ export default function App() {
                   ) : (
                     <Icon size={20} color={active ? T.ai1 : "var(--sub)"} />
                   )}
-                  <span className="text-[10px] font-medium" style={{ color: active ? T.ai1 : "var(--sub)" }}>{t.label}</span>
+                  <span className="max-w-full truncate text-[9px] font-medium min-[375px]:text-[10px]" style={{ color: active ? T.ai1 : "var(--sub)" }}>{t.label}</span>
                 </button>
               );
             })}

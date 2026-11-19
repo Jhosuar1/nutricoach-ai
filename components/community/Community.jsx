@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Bell, Bookmark, Film, LayoutList, LockKeyhole, MessageCircle, Plus, Search as SearchIcon, UserRound, Users } from "lucide-react";
+import { ArrowUpRight, Bell, Bookmark, Film, ImagePlus, LayoutList, LockKeyhole, MessageCircle, Plus, Search as SearchIcon, SquarePen, UserRound, Users } from "lucide-react";
 import Profile from "./Profile";
+import ProfileOverview from "./ProfileOverview";
+import ActionPanel from "./ActionPanel";
 import Feed from "./Feed";
 import People from "./People";
 import Inbox from "./Inbox";
@@ -11,7 +13,7 @@ import Composer from "./Composer";
 import Activity from "./Activity";
 import VideoCall from "./VideoCall";
 import { communityRequest, sendJson } from "./api";
-import { Avatar, button, Notice, Person, primary } from "./controls";
+import { Avatar, button, Notice, primary } from "./controls";
 import "./community.css";
 
 const views = [
@@ -23,11 +25,11 @@ const views = [
   { id: "saved", label: "Guardados", Icon: Bookmark },
 ];
 
-export default function Community({ suggestedName, sharedPost, onClearSharedPost }) {
+export default function Community({ suggestedName, sharedPost, sharedPerson, onClearSharedPost }) {
   const [profile, setProfile] = useState(undefined);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
-  const [view, setView] = useState("feed");
+  const [view, setView] = useState(sharedPerson ? "search" : "feed");
   const [peer, setPeer] = useState(null);
   const [composer, setComposer] = useState(null);
   const [published, setPublished] = useState(0);
@@ -37,6 +39,7 @@ export default function Community({ suggestedName, sharedPost, onClearSharedPost
   const [incoming, setIncoming] = useState(null);
   const [call, setCall] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [postOrigin, setPostOrigin] = useState("feed");
   const uid = profile?.user_id;
   const postId = sharedPost || selectedPost;
   const unread = events?.filter(event => event.unread).length || 0;
@@ -92,6 +95,7 @@ export default function Community({ suggestedName, sharedPost, onClearSharedPost
     else if (["friend", "accepted"].includes(event.kind)) setView("people");
     else {
       onClearSharedPost?.();
+      setPostOrigin("activity");
       setSelectedPost(event.target);
       setView("feed");
     }
@@ -123,7 +127,11 @@ export default function Community({ suggestedName, sharedPost, onClearSharedPost
         <button className={button} aria-label={unread ? `Notificaciones: ${unread} sin leer` : "Notificaciones"} onClick={() => {
           onClearSharedPost?.(); setSelectedPost(null); setView("activity");
         }}><Bell size={18} aria-hidden="true" />{unread > 0 && <span className="community-count">{unread}</span>}</button>
-        <button className={primary} onClick={() => setComposer("post")}><Plus aria-hidden="true" size={18} /><span>Crear publicación</span></button>
+        <ActionPanel title="Crear contenido" label="Crear" Icon={Plus} className={primary} items={[
+          { Icon: SquarePen, label: "Publicación", action: () => setComposer("post") },
+          { Icon: ImagePlus, label: "Fotos", action: () => setComposer("photo") },
+          { Icon: Film, label: "Video", action: () => setComposer("video") },
+        ]} />
       </div>}
     </header>
     <Notice error={error} onRetry={() => setRevision(value => value + 1)} />
@@ -147,9 +155,9 @@ export default function Community({ suggestedName, sharedPost, onClearSharedPost
       </nav>
       <div className="community-main">
         {postId && view === "feed" && <>
-          <div className="community-section-heading"><h2>Publicación compartida</h2><button className={button} onClick={() => {
-            onClearSharedPost?.(); setSelectedPost(null);
-          }}>Volver al muro</button></div>
+          <div className="community-section-heading"><h2>{sharedPost ? "Publicación compartida" : "Publicación"}</h2><button className={button} onClick={() => {
+            onClearSharedPost?.(); setSelectedPost(null); setView(sharedPost ? "feed" : postOrigin);
+          }}>Volver</button></div>
           <Feed profile={profile} postId={postId} />
         </>}
         {view === "activity" && <><Notice error={activityError} /><Activity events={events} onOpen={openEvent} onRead={markRead} /></>}
@@ -165,22 +173,19 @@ export default function Community({ suggestedName, sharedPost, onClearSharedPost
           <div className="community-section-heading"><h2>Guardados</h2></div>
           <Feed profile={profile} scope="saved" />
         </>}
-        {view === "search" && <Search profile={profile} onChat={openChat} />}
+        {view === "search" && <Search profile={profile} onChat={openChat} initialQuery={sharedPerson ? `@${sharedPerson}` : ""} />}
         {view === "people" && <>
           <div className="community-section-heading"><h2>Amistades</h2><button className={button} onClick={() => setView("search")}><SearchIcon aria-hidden="true" size={16} /> Buscar</button></div>
           <People onChat={openChat} />
         </>}
-        {view === "inbox" && <Inbox peer={peer} userId={profile.user_id} onSelect={setPeer} onFind={() => setView("people")}
+        {view === "inbox" && <Inbox peer={peer} userId={profile.user_id} onSelect={setPeer} onFind={() => setView("search")}
           onCall={person => setCall({ userId: person.user_id, name: person.display_name })} />}
         {view === "profile" && (editing ? <Profile profile={profile} suggestedName={suggestedName}
-          onCancel={() => setEditing(false)} onSave={saved => { setProfile(saved); setEditing(false); }} /> : <>
-          <div className="community-card flex flex-wrap items-center gap-3">
-            <Avatar person={profile} /><div className="min-w-0 flex-1"><Person person={profile} /></div>
-            <button className={button} onClick={() => setEditing(true)}>Editar perfil</button>
-          </div>
-          <div className="community-section-heading"><h2>Mis publicaciones</h2></div>
-          <Feed profile={profile} scope="mine" revision={published} onCompose={setComposer} />
-        </>)}
+          onCancel={() => setEditing(false)} onSave={saved => { setProfile(saved); setEditing(false); }} /> :
+          <ProfileOverview profile={profile} revision={published} onEdit={() => setEditing(true)} onPeople={() => setView("people")}
+            onCompose={setComposer} onPost={id => {
+              setPostOrigin("profile"); setSelectedPost(id); setView("feed");
+            }} />)}
       </div>
       <aside className="community-aside" aria-label="Perfil y privacidad">
         <button className="community-card community-profile-link" onClick={() => { onClearSharedPost?.(); setSelectedPost(null); setEditing(false); setView("profile"); }}>
@@ -205,7 +210,7 @@ export default function Community({ suggestedName, sharedPost, onClearSharedPost
       setComposer(null);
       onClearSharedPost?.();
       setSelectedPost(null);
-      setView(composer === "video" ? "video" : "feed");
+      setView(current => current === "profile" ? "profile" : composer === "video" ? "video" : "feed");
       setPublished(value => value + 1);
     }} />}
   </main>;

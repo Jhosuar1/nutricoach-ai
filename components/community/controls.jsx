@@ -18,11 +18,11 @@ export function dateLabel(value) {
   return at.toDateString() === new Date().toDateString() ? time.format(at) : date.format(at);
 }
 
-export function Avatar({ person, small = false }) {
+export function Avatar({ person, small = false, large = false }) {
   const initials = (person.display_name || person.handle || "N").trim()
     .split(/\s+/).slice(0, 2).map(word => Array.from(word)[0]).join("").toUpperCase();
   const colorIndex = Array.from(person.handle || initials).reduce((n, part) => n + part.codePointAt(0), 0) % 4;
-  return <span className={`community-avatar tone-${colorIndex} ${small ? "is-small" : ""}`} aria-hidden="true">{initials}</span>;
+  return <span className={`community-avatar tone-${colorIndex} ${small ? "is-small" : large ? "is-large" : ""}`} aria-hidden="true">{initials}</span>;
 }
 
 export function Person({ person }) {
